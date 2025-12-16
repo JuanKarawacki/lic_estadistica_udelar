@@ -1,0 +1,256 @@
+---
+title: "entrega_8"
+author: "Juan M Karawcki"
+date: "2025-10-24"
+output: html_document
+---
+
+Ejercicio de análisis de sensibilidad a los hiperparámetros:
+
+Investigar cómo varían los resultados obtenidos mediante el muestreador de Gibbs al modificar los valores de los hiperparámetros $\theta_0$, $\tau^2$, $a$ y $b$.
+Para ello, seleccionar al menos tres valores distintos para cada hiperparámetro, desde valores poco informativos hasta informativos.
+Para cada combinación de valores elegidos, ejecutar el muestreador de Gibbs y calcular:
+
+La estimación puntual (media a posteriori) de $\theta$ y $\sigma$
+
+Intervalos de credibilidad aproximados del 90% para $\theta$ y $\sigma$
+Finalmente, presentar los resultados en tablas o gráficos comparativos y analizar cómo influyen los hiperparámetros en las estimaciones obtenidas.
+
+```{r include=FALSE, warning=FALSE, message=FALSE}
+library(ggplot2)
+library(gridExtra)
+```
+
+```{r}
+x <- c(91, 504, 557, 609, 693, 727, 764, 803, 857,
+929, 970, 1043, 1089, 1195, 1384, 1713)
+lx <- log(x)
+
+```
+
+Se parte de un vector de observaciones positivas $x$ y se aplica la transformación logarítmica $l_x=\log(x)$. Esta transformación cumple tres objetivos habituales antes de modelar (por ejemplo, con un muestreador de Gibbs):
+
+1. Estabilizar la varianza y acercar la distribución a la normalidad cuando los datos son altamente asimétricos a la derecha.
+2. Linealizar relaciones multiplicativas (modelos de la forma $Y=\alpha X^\beta \varepsilon$) para trabajar en un marco aditivo en la escala log.
+3. Facilitar la interpretación de efectos en términos relativos o porcentuales: diferencias aditivas en $l_x$ corresponden a razones (cambios porcentuales) en $x$.
+
+En síntesis, transformar $x$ a $\log(x)$ puede mejorar el ajuste, la inferencia y la convergencia del algoritmo al trabajar con supuestos de normalidad más plausibles en la escala transformada.
+
+```{r}
+a <- c(0.5, 3, 10)
+b <- c(0.5, 3, 10)
+tau2 <- c(1, 10, 100)
+theta0 <- c(4.5, 5, 5.5)
+```
+
+```{r}
+gibbs <- function(lx, a, b, tau2, theta0, Nsim = 5000, seed = 108) {
+  stopifnot(length(a) == length(b),
+            length(a) == length(tau2),
+            length(a) == length(theta0))
+  J <- length(a)
+  salida <- vector("list", J)
+
+  for (j in seq_len(J)) {
+    set.seed(seed + j)
+
+    # Estadísticos de esta corrida
+    n_j    <- length(lx)
+    xbar_j <- mean(lx)
+    sh1_j  <- (n_j/2) + a[j]
+
+    # Cadenas
+    theta  <- numeric(Nsim)
+    sigma2 <- numeric(Nsim)
+
+    # Inicialización
+    sigma2[1] <- 1/rgamma(1, shape = a[j], rate = b[j])
+    B <- sigma2[1] / (sigma2[1] + n_j * tau2[j])
+    theta[1] <- rnorm(1,
+                      mean = B*theta0[j] + (1 - B)*xbar_j,
+                      sd   = sqrt(tau2[j]*B))
+
+    # Gibbs
+    for (i in 2:Nsim) {
+      B <- sigma2[i-1] / (sigma2[i-1] + n_j * tau2[j])
+      theta[i] <- rnorm(1,
+                        mean = B*theta0[j] + (1 - B)*xbar_j,
+                        sd   = sqrt(tau2[j]*B))
+      ra1 <- 0.5 * sum((lx - theta[i])^2) + b[j]
+      sigma2[i] <- 1/rgamma(1, shape = sh1_j, rate = ra1)
+    }
+
+    # Vector pedido en el mismo orden que imprimías: xbar, n, sh1
+    salida[[j]] <- c(xbar = xbar_j, n = n_j, sh1 = sh1_j)
+  }
+
+  names(salida) <- sprintf("theta0=%.3f_tau2=%g_a=%g_b=%g",
+                           theta0, tau2, a, b)
+  return(salida)
+}
+gibbs(lx, a, b, tau2, theta0)
+```
+Idea del bloque de muestreo de Gibbs:
+
+El código implementa un muestreador de Gibbs para un modelo normal con prior conjugado en la escala log ($l_x$), con $\theta$ (media) y $\sigma^2$ (varianza) desconocidas. Primero calcula estadísticas suficientes ($\bar{l}_x$, $n$) y constantes de la posterior ($\text{sh1}=n/2+a$). Luego:
+1. Inicializa $\sigma^2$ desde la inversa-gamma usando $1/\text{rgamma}(\text{shape}=a,\ \text{rate}=b)$.
+2. Actualiza $\theta\mid\sigma^2,l_x \sim \mathcal{N}\!\left(B\,\theta_0+(1-B)\,\bar{l}_x,\ \tau^2 B\right)$, donde $B=\dfrac{\sigma^2}{\sigma^2+n\,\tau^2}$ es el factor de “shrinkage” que pondera entre el prior ($\theta_0$) y los datos ($\bar{l}_x$).
+3. Actualiza $\sigma^2\mid \theta,l_x \sim \text{Inv-Gamma}\!\left(\text{shape}=n/2+a,\ \text{rate}=0.5\sum(l_x-\theta)^2+b\right)$.
+
+Repitiendo los pasos 2–3 durante $Nsim$ iteraciones se generan draws de la distribución posterior conjunta de $(\theta,\sigma^2)$, a partir de los cuales se obtienen estimaciones puntuales (p. ej., medias a posteriori) e intervalos de credibilidad del 90%. La “salida” que se imprime al inicio (6.631066, 16, 11) corresponde a $\bar{l}_x$, $n$ y $\text{sh1}$, respectivamente, y se utiliza en las actualizaciones condicionales.
+
+```{r}
+intervals_by_config <- function(lx, a, b, tau2, theta0, Nsim = 5000, burn = 0, seed = 108){
+  stopifnot(length(a) == length(b),
+            length(a) == length(tau2),
+            length(a) == length(theta0))
+  J <- length(a)
+  rows <- vector("list", J)
+
+  for(j in seq_len(J)){
+    set.seed(seed + j)
+    n    <- length(lx)
+    xbar <- mean(lx)
+    sh1  <- (n/2) + a[j]
+
+    theta  <- numeric(Nsim)
+    sigma2 <- numeric(Nsim)
+
+    # Inicialización
+    sigma2[1] <- 1/rgamma(1, shape = a[j], rate = b[j])
+    B <- sigma2[1]/(sigma2[1] + n * tau2[j])
+    theta[1] <- rnorm(1, mean = B*theta0[j] + (1-B)*xbar, sd = sqrt(tau2[j]*B))
+
+    # Gibbs
+    for(i in 2:Nsim){
+      B <- sigma2[i-1]/(sigma2[i-1] + n * tau2[j])
+      theta[i] <- rnorm(1, mean = B*theta0[j] + (1-B)*xbar, sd = sqrt(tau2[j]*B))
+      ra1 <- 0.5 * sum((lx - theta[i])^2) + b[j]
+      sigma2[i] <- 1/rgamma(1, shape = sh1, rate = ra1)
+    }
+
+    keep   <- (burn + 1):Nsim
+    sigma  <- sqrt(sigma2[keep])
+    q_theta <- quantile(theta[keep], c(0.05, 0.95))
+    q_sigma <- quantile(sigma,      c(0.05, 0.95))
+
+    rows[[j]] <- data.frame(
+      theta0 = theta0[j], tau2 = tau2[j], a = a[j], b = b[j],
+      theta_q05 = unname(q_theta[1]), theta_q95 = unname(q_theta[2]),
+      sigma_q05 = unname(q_sigma[1]), sigma_q95 = unname(q_sigma[2])
+    )
+  }
+
+  res <- do.call(rbind, rows)
+  rownames(res) <- NULL
+  return(res)
+}
+
+# Ejemplo de uso con tus vectores:
+# (a_vec, b_vec, tau2_vec, theta0_vec ya definidos)
+res_tbl <- intervals_by_config(lx, a_vec, b_vec, tau2_vec, theta0_vec, Nsim = 5000, burn = 1000)
+print(res_tbl)
+```
+Primero se transforma la muestra posterior de la varianza $\sigma^2$ a la desviación estándar $\sigma=\sqrt{\sigma^2}$ para interpretar en la misma escala que los datos transformados. Luego, con las cadenas posteriores de $\theta$ y $\sigma$, se calculan los cuantiles $0.05$ y $0.95$ para obtener intervalos centrales del $90\%$:
+- $[\text{q}_{0.05}(\theta),\ \text{q}_{0.95}(\theta)]$ como intervalo de credibilidad del $90\%$ para $\theta$.
+- $[\text{q}_{0.05}(\sigma),\ \text{q}_{0.95}(\sigma)]$ como intervalo de credibilidad del $90\%$ para $\sigma$.
+
+Finalmente, se imprimen estos intervalos redondeados, lo que resume la incertidumbre posterior de los parámetros de interés a partir de las simulaciones del muestreador de Gibbs.
+
+```{r}
+# Versión para vectores de hiperparámetros: arma data frames combinados y genera histogramas facetados
+# Requiere tener definidos: a_vec, b_vec, tau2_vec, theta0_vec y el vector de datos lx
+
+# 1) Función: corre el Gibbs por cada j y devuelve un data frame con theta, sigma, sigma2 y etiqueta de config
+gibbs_draws_df <- function(lx, a, b, tau2, theta0, Nsim = 5000, burn = 1000, seed = 108){
+  stopifnot(length(a)==length(b), length(a)==length(tau2), length(a)==length(theta0))
+  J <- length(a)
+  out_list <- vector("list", J)
+
+  for(j in seq_len(J)){
+    set.seed(seed + j)
+    n    <- length(lx)
+    xbar <- mean(lx)
+    sh1  <- (n/2) + a[j]
+
+    theta  <- numeric(Nsim)
+    sigma2 <- numeric(Nsim)
+
+    # Inicialización (idéntica a tu script)
+    sigma2[1] <- 1/rgamma(1, shape = a[j], rate = b[j])
+    B <- sigma2[1]/(sigma2[1] + n * tau2[j])
+    theta[1] <- rnorm(1, mean = B*theta0[j] + (1-B)*xbar, sd = sqrt(tau2[j]*B))
+
+    # Gibbs
+    for(i in 2:Nsim){
+      B <- sigma2[i-1]/(sigma2[i-1] + n * tau2[j])
+      theta[i] <- rnorm(1, mean = B*theta0[j] + (1-B)*xbar, sd = sqrt(tau2[j]*B))
+      ra1 <- 0.5 * sum((lx - theta[i])^2) + b[j]
+      sigma2[i] <- 1/rgamma(1, shape = sh1, rate = ra1)
+    }
+
+    keep <- (burn+1):Nsim
+    cfg  <- sprintf("θ0=%.2f, τ2=%g, a=%g, b=%g", theta0[j], tau2[j], a[j], b[j])
+    out_list[[j]] <- data.frame(
+      theta = theta[keep],
+      sigma = sqrt(sigma2[keep]),
+      sigma2 = sigma2[keep],
+      config = cfg,
+      stringsAsFactors = FALSE
+    )
+  }
+  do.call(rbind, out_list)
+}
+
+# 2) Correr y armar data frames como en tu versión simple, pero combinados por configuración
+draws_df <- gibbs_draws_df(lx, a_vec, b_vec, tau2_vec, theta0_vec, Nsim = 5000, burn = 1000)
+
+# 3) Histogramas equivalentes a los tuyos, ahora facetados por configuración
+# Histograma para θ
+p_theta <- ggplot(draws_df, aes(x = theta)) +
+  geom_histogram(aes(y = after_stat(count)), color = "black", fill = "lightgray", bins = 40) +
+  labs(title = expression(theta), x = "", y = "Frecuencia") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 14)) +
+  facet_wrap(~ config, scales = "free")
+
+# Histograma para σ
+p_sigma <- ggplot(draws_df, aes(x = sigma)) +
+  geom_histogram(aes(y = after_stat(count)), color = "black", fill = "brown3", bins = 40) +
+  labs(title = expression(sigma), x = "", y = "Frecuencia") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 14)) +
+  facet_wrap(~ config, scales = "free")
+
+# Histograma para σ^2
+p_sigma2 <- ggplot(draws_df, aes(x = sigma2)) +
+  geom_histogram(aes(y = after_stat(count)), color = "black", fill = "lightblue", bins = 40) +
+  labs(title = expression(sigma^{2}), x = "", y = "Frecuencia") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 14)) +
+  facet_wrap(~ config, scales = "free")
+```
+
+#Histogramas para $\theta$ y $\sigma^2$
+```{r echo = FALSE, warning=FALSE}
+grid.arrange(p_theta, p_sigma, ncol = 2)
+
+```
+Los histogramas muestran las distribuciones marginales posteriores de $\theta$ y $\sigma$ generadas por el muestreador de Gibbs. Sirven para:
+1. Visualizar la forma de las posteriores (asimetrías, colas, multimodalidad) y comprobar si una aproximación normal es razonable.
+2. Evaluar la incertidumbre: la dispersión horizontal refleja la variabilidad posterior; picos más concentrados indican mayor precisión.
+3. Contrastar con resúmenes numéricos (medias, medianas, intervalos del $90\%$) y detectar valores atípicos o falta de mezcla.
+4. Comparar escenarios de hiperparámetros: cambios en la anchura o localización de los histogramas muestran el efecto del prior sobre las estimaciones.
+
+#Histogramas para $\theta$ y $\sigma^2$
+```{r echo = FALSE, warning=FALSE}
+grid.arrange(p_theta, p_sigma2, ncol = 2)
+```
+Los histogramas representan las distribuciones marginales posteriores de $\theta$ (media) y de la varianza $\sigma^2$ obtenidas con el muestreador de Gibbs. Su utilidad principal es:
+1. Explorar la forma de las posteriores: simetría en $\theta$ y posible asimetría a la derecha en $\sigma^2$ (soporte positivo).
+2. Evaluar la incertidumbre: la anchura de cada histograma refleja la dispersión posterior; picos más altos indican mayor precisión.
+3. Verificar supuestos y diagnóstico visual: detectar colas largas, falta de mezcla o multimodalidad que no se aprecia en resúmenes numéricos.
+4. Comparar configuraciones de hiperparámetros: cambios en localización o dispersión muestran cómo el prior influye en las estimaciones y su variabilidad.
+
+
+

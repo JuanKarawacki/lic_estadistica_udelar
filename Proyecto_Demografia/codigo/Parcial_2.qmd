@@ -1,0 +1,778 @@
+---
+title: "Parcial 2"
+author: "David Fernández y Juan Karawacki"
+format: pdf
+editor: visual
+---
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+instalar <- function(paquete) {
+    if (!require(paquete, character.only = TRUE)) {
+        install.packages(paquete)
+    }
+    return(library(paquete, character.only = TRUE))
+}
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+instalar("readxl")
+instalar("survival")
+```
+
+## Primera Parte: Simulación de Eventos Demográficos
+
+Esta primera parte del trabajo final se enfoca en la aplicación de simulación para generar trayectorias de vida individuales. El objetivo central es replicar el comportamiento de una cohorte real mediante la generación de tiempos de espera aleatorios a partir de datos agregados.
+
+Para ello, se utiliza el Método de la Transformada Inversa aplicado sobre tasas específicas por edad, entendidas bajo el supuesto de un Modelo de Riesgo Constante a Intervalos (Piecewise-Constant Hazard).
+
+### Selección del Caso de Estudio
+
+Para este ejercicio se seleccionó a Estados Unidos como población de estudio y el año 2015 como período de referencia. Esta elección se justifica por la disponibilidad de datos y el interés en analizar una estructura demográfica moderna, teniendo una alta esperanza de vida y una fecundidad controlada con postergación de la maternidad.
+
+Se basará en analizar dos eventos de naturaleza distinta para poner a prueba el modelo: 1. Fallecimiento (Mortalidad): Un evento universal e inevitable. 2. Primer Hijo (Fecundidad): Un evento no universal (no todas las mujeres lo experimentan).
+
+Los datos provienen de dos fuentes de referencia internacional: - Human Mortality Database (HMD): Para las tasas de mortalidad ($M_x$). - Human Fertility Database (HFD): Para las tasas de fecundidad condicionales ($m_{1x}$).
+
+## 1. Carga de Datos y Análisis
+
+El primer paso consiste en preparar el entorno de trabajo asegurando reproducibilidad. Cargamos las librerías necesarias, la función de simulación personalizada(ste).
+
+```{r setup, include=TRUE}
+#| echo: false
+#| message: false
+#| warning: false
+set.seed(2025) #semilla para asegurar la reproducibilidad de los resultados
+# cargamos la función de simulacion ste
+source("ste.r") 
+```
+
+### 1.1. Procesamiento de las Tablas de Tasas
+
+Se realiza la lectura de los archivos brutos y se limpiezan para poder trabajar con ellos. Esto es fundamental porque los archivos demográficos pueden tener notaciones de intervalos abiertos (como 110+) o valores perdidos que no permiten el cálculo matemático de las integrales de riesgo, por ejemplo.
+
+Para la mortalidad, se convierte el intervalo abierto en una edad numérica cerrada para permitir la simulación hasta la extinción de la cohorte. Para la fecundidad, imputamos un riesgo cero (0) en aquellas edades donde no se registran nacimientos o existen datos faltantes.
+
+```{r carga_datos, include=TRUE}
+#| echo: false
+#| message: false
+#| warning: false
+# mortalidad
+mx_data <- read.csv(file.path( "datos", "Mx_1x1.txt"), sep ="", skip= 1, header = T)   
+   
+# 110+ pasandolo a 110 numerico
+mx_data$Age <- as.character( mx_data$Age)  
+mx_data$Age[ mx_data$Age =="110+"] <- "110"  
+
+#filtramos por el año seleccionado (2015) y sexo femenino
+mort <- mx_data[ mx_data$Year == 2015, c("Age", "Female")]
+mort$Age <- as.numeric(mort$Age)  
+mort$Female <- as.numeric(mort$Female)
+names(mort) <- c("edad", "h") # Renombramos a h para la función ste
+
+# fecundidad
+fx_data <- read.table(file.path("datos", "USAmi.txt"), 
+                    header= T,skip= 2,stringsAsFactors = F,na.strings = ".") 
+
+# nos ahorramos problemas de codigo
+fx_data$Age <- as.character(fx_data$Age)
+fx_data$Age[fx_data$Age == "55+"] <-"55" 
+fx_data$Age[fx_data$Age == "12-"] <-"12" 
+
+# agarramos solo 2015 y tasa condicional al primer hijo (m1x)
+fert <- fx_data[ fx_data$Year == 2015, c("Age", "m1x")]  
+
+# confirmamos que sean numeros y los NA´s que sean 0, osea riesgo nulo
+fert$Age <- as.numeric(fert$Age) 
+fert$m1x <- as.numeric(fert$m1x)  
+fert$m1x[ is.na(fert$m1x)] <- 0   
+ 
+names(fert) <- c("edad", "h")# renom h para la función ste
+```
+
+### 1.2. Análisis Visual de los Insumos (Tasas)
+
+Antes de simular, es importante entender la estructura de los datos de entrada. Graficar las tasas especificas por edad ayuda a verificar que sigan los patrones demográficos esperados.
+
+```{r grafico_mx, echo=TRUE}
+#| echo: false
+
+# grafico de las tasas de mortalidad(Mx)
+plot(mort$edad, mort$h, type="l", col="red", lwd=2, log="y",
+     main="1. Tasas Mortalidad (Mx) USA, 2015", xlab="Edad", ylab="log(h)")
+```
+
+**Descripción:** Este gráfico muestra la estructura del riesgo de muerte por edad para la mujeres de Estados Unidos en 2015, se usa una escala logarítmica en el eje vertical para ver adecuadamente las variaciones de magnitud especialmente a edades tempranas. La curva sigue el patrón en forma de "J", siendo mas característica en las poblaciones modernas. Se observa un nivel de riesgo relativamente elevado en el año 0, que corresponde a la mortalidad infantil, luego se ve un descenso rápido hasta alcanzar el minimo durante la niñez (alrededor de los 10 años). A partir de la adolescencia y la adultez temprana, la curva toma un ascenso lineal en la escala logarítmica, lo que signfica un crecimiento exponencial del riesgo de muerte que se asocia al proceso biológico.
+
+```{r grafico_fx, echo=TRUE}
+#| echo: false
+
+#grafico de las Tasas de Fecundidad
+plot(fert$edad, fert$h, type="l", col="darkblue", lwd=2,
+     main="2. Tasas Condicionales 1er Hijo (m1x) USA, 2015", xlab="Edad", ylab="h")
+grid()
+```
+
+**Descripción:** En este gráfico se representa la distribución de las tasas condicionales de tener el primer hijo. Para la cohorte implícita en las tasas de 2015, se observa que la intensidad del inicio de la maternidad es prácticamente nula antes de los 15 años y asciende con 2 modas hasta alcanzar su cúspide pasado los 30 años. Este pico tardío muestra un patrón de postergación de la maternidad visto en sociedades mas desarrolladas. Posteriormente, las tasas descienden de forma acelerada a partir de los 35 años, volviéndose nulas al finalizar el período fértil.
+
+## 2. Estrategia Metodológica
+
+Para la generación de los tiempos de espera individuales, se usa el Método de la Transformada Inversa. Que permite transformar las tasas demográficas observadas en una distribución de duraciones, bajo el supuesto de que el riesgo es constante dentro de cada intervalo de edad.
+
+### Fundamentos del Algoritmo
+
+El procedimiento se basa en tres componentes teóricos que permiten el paso tasasa a individuos:
+
+1.  **Modelización del Riesgo Instantáneo:** Se asume que las tasas especificas observadas en las tablas ($M_x$ o $m_{1x}$) equivalen a la función de riesgo $h(t)$. Para simplificar la integración matemática, se considera que este riesgo se mantiene constante dentro de cada tramo de edad.
+2.  **Construcción del Riesgo Acumulado:** A partir de las tasas, se llega a la función de riesgo acumulado $H(t)$, que es el resultado de la integración del riesgo hasta el tiempo $t$. Esta función es creciente y representa la cantidad de riesgo acumulado por un individuo desde el inicio de la exposición.
+3.  **Inversión de Probablidad:** Debido a que la función de distribución de supervivencia mapea tiempos a probabilidades en el rango \[0,1\], se puede hacer el proceso inverso: se genera un número aleatorio $U$ proveniente de una distribución Uniforme $U(0,1)$ y se despeja el tiempo $t$ asociado mediante la formula: $$T = H^{-1}(-\ln(U)) $$ Esto significa buscar la edad exacta $T$ en la cual el riesgo acumulado alcanza el valor determinado por el componente aleatorio $-\ln(U)$.
+
+### Implementación Numérica (`ste.r`)
+
+La resolución analítica de la ecuación anterior para miles de casos requiere computación numérica. Para ello, utilizamos la función personalizada `ste()`.
+
+### Manejo de Eventos No Universales
+
+Finalmente, el modelo `ste.r` tiene en cuenta que no todos los individuos experimentan todos los eventos (ejemplo, el nacimiento del primer hijo).
+
+Entonces, el algoritmo calcula primero la probabilidad teórica de finalizar el periodo reproductivo sin hijos. Si el número aleatorio $U$ del individuo cae dentro de ese rango de "no ocurrencia", el sistema le asigna automáticamente un tiempo infinito. Entonces, la simulación distingue de manera correcta entre quienes postergan el evento y quienes nunca lo experimentan.
+
+## 3. Generación de Datos y Validación del Modelo
+
+Una vez definido la metodologia, se hace la simulación de 10.000 trayectorias individuales para cada evento. El objetivo de esta etapa es verificar si el mecanismo propuesto es capaz de reproducir correctamente la estructura de las tasas originales.
+
+### 3.1. Ejecución de la Simulación
+
+Se usa la función `ste()` descrita anteriormente, tomando como insumo las tasas limpias de mortalidad y fecundidad. El procedimiento no solo devuelve los tiempos simulados, sino también el vector de riesgo acumulado teórico, que es necesario para la validación del modelo.
+
+```{r simulacion_run, include=TRUE}
+#| echo: false
+#| message: false
+#| warning: false
+#Simulacion del Evento Muerte
+#se generan 10.000 tiempos de espera basados en las tasas de mortalidad
+sim_muerte <- ste(n = 10000, edades = mort$edad, lambda = mort$h, Haz = TRUE)
+
+#vector logico para identificar eventos observados contra censurados
+eventos_muerte <- sim_muerte[[1]] < Inf 
+H_muerte <- sim_muerte[[2]] #riesgo acumulado teorico
+
+# Simulacion del Evento Primer Hijo
+# se repite el proceso para la fecundidad
+sim_hijo <- ste(n = 10000, edades = fert$edad, lambda = fert$h, Haz = TRUE)
+eventos_hijo <- sim_hijo[[1]] < Inf 
+H_hijo <- sim_hijo[[2]]
+```
+
+### 3.2. Comparación y Validación Gráfica
+
+La validación del modelo se realiza con la contraposición de dos curvas de supervivencia:
+
+1.  **Curva Esperada:** Calculada matemáticamente a partir de las tasas de entrada ($S(t) = e^{-H(t)}$). Representa el comportamiento ideal del fenomeno.
+2.  **Curva Simulada:** Estimada mediante el método de Kaplan-Meier sobre los 10.000 tiempos generados por el algoritmo.
+
+Si el procedimiento es correcto, la estimación Kaplan-Meier (linea gris) deberá superponerse a la función teórica (línea de color), confirmando que los datos simulados respetan la distribución de probabilidad original.
+
+#### Validación de Mortalidad
+
+```{r validacion_muerte, echo=TRUE}
+#| echo: false
+
+#graficamos la función de supervivencia estimada (Kaplan-Meier) de los datos simulados
+plot(survfit(Surv(sim_muerte[[1]], eventos_muerte) ~ 1), 
+     main="3. S(t) Mortalidad (KM vs Teórico)", 
+     xlab="Edad (t)", ylab="S(t)", col="darkgray", lwd=3, mark.time = FALSE,
+     xlim=c(0, length(H_muerte) - 1), 
+     ylim=c(0, 1))
+
+# superponemos la curva teorica esperada
+lines(0:(length(H_muerte)-1), exp(-H_muerte), lwd = 3, col = "red", lty = 2)
+legend("bottomleft", c("Simulado (KM)", "Teórico"), col=c("darkgray","red"), lty=c(1,2), cex=0.7)
+```
+
+**Resultados Obtenidos:** Este gráfico tiene como objetivo validar la simulación del evento muerte comparando la función de supervivencia teórica ($e^{-H(t)}$) con el estimador Kaplan-Meier derivado de los 10.000 casos simulados. La curva manteniéndose cercana a 1 durante la mayor parte del ciclo de vida indica una alta probabilidad de sobrevivir hasta la vejez. La caída pronunciada de la función se se da en las edades avanzadas (mayores de 75 años). La superposición casi exacta entre la curva simulada (gris) y la teórica (roja) confirma la eficacia del método de la transformada inversa para replicar la tabla de mortalidad original.
+
+#### Validación de Fecundidad (Primer Hijo)
+
+```{r validacion_fecundidad}
+#| echo: false
+
+#graficamos la funcion de supervivencia estimada
+plot(survfit(Surv(sim_hijo[[1]], eventos_hijo) ~ 1), 
+     main="4. S(t) Primer Hijo (KM vs Teórico)", 
+     xlab="Edad (t)", ylab="S(t)", col="darkgray", lwd=3, xlim=c(10, 50), mark.time = FALSE)
+
+#superponemos la curva teórica
+S_hijo_teorica <- c(rep(1, min(fert$edad)), exp(-H_hijo))
+lines(0:(length(S_hijo_teorica)-1), S_hijo_teorica, lwd=2, col="blue", lty=2)
+legend("bottomleft", c("Simulado (KM)", "Teórico"), col=c("darkgray","blue"), lty=c(1,2), cex=0.7)
+```
+
+**Resultados Obtenidos:** Este último gráfico valida la simulación del evento primer nacimiento, comparando la probabilidad de permanecer sin hijos a lo largo del tiempo. La curva muestra un descenso mayor entre los 20 y 35 años, que coincide con las edades de mayor fecundidad. El hecho fundamental de este gráfico es que la función de supervivencia no desciende hasta cero, sino que se estabiliza en una meseta a partir de los 40 años. El nivel que queda al final representa la proporción de mujeres que terminan su vida fértil sin haber tenido hijos. La coincidencia entre ambas curvas en la meseta final valida mas el modelo: indica que se asignó correctamente tiempos censurados (infinitos) a las mujeres que no experimentaron la maternidad.
+
+El objetivo de esta segunda parte es trabajar las proyecciones de población. Para completar el ejercicio se deberán seguir los siguientes pasos:
+
+1.  Seleccionar un país y dirigirse a\
+    <http://www.humanfertility.org> y <http://www.mortality.org>\
+    para descargar datos por edades simples de:
+
+    -   Tamaño de población por edad y sexo: Human Mortality Database \> Period Data \> Population Size \> 1 Year
+
+    -   Tasas específicas de fecundidad por edad:\
+        Human Fertility Database \> Age-Specific Data \> Period \> Age-specific fertility rates \> Year, Age
+
+    -   Tablas de mortalidad (mujeres y hombres por separado):\
+        Human Mortality Database \> Period Data \> Life Tables \> 1x1
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+# PASO 1: Cargar los datos desde tu carpeta -------------------------------------
+
+# Cargar tamaño de población (Population Size)
+pop <- read.table(
+  file.path("datos_parte_2", "Population.txt"),
+  skip   = 2,     # salteo las dos primeras líneas de texto
+  header = TRUE,  # usa "Year Age Female Male Total" como nombres
+  sep    = ""     # separador = espacios en blanco
+)
+
+
+# Cargar tasas específicas de fecundidad (ASFR)
+f <- read.table(
+    file.path("datos_parte_2", "USAasfrRR.txt"), 
+    skip   = 2,   
+    header = TRUE,  
+    sep    = ""     
+)
+
+# Cargar life tables (Female y Male)
+Lf <- read.table(
+    file.path("datos_parte_2", "fltper_1x1.txt"), 
+    skip   = 2,   
+    header = TRUE,  
+    sep    = ""     
+)                             
+
+Lm <- read.table(
+    file.path("datos_parte_2", "mltper_1x1.txt"),
+    skip   = 2,   
+    header = TRUE,  
+    sep    = ""     
+)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+# Funcion para preparar los datos
+data_prep <- function(pop, f, Lf, Lm, ini_year, save = F){
+  
+  all_dat <- lapply(list(pop, f, Lf, Lm), function(x) x[x$Year >= ini_year,])
+  
+  last_pop <- all_dat[[1]][all_dat[[1]]$Year == max(all_dat[[1]]$Year),  c("Year","Age", "Female","Male")]
+  last_pop[last_pop$Age == "110+", "Age"] <- "110"
+  last_pop$Age <- as.numeric(last_pop$Age)
+  
+  all_dat[[1]] <- all_dat[[1]][all_dat[[1]]$Year == ini_year,  c("Age", "Female","Male")]
+  
+  all_dat[[2]][all_dat[[2]]$Age == "12-", "Age"] <- "12"
+  all_dat[[2]][all_dat[[2]]$Age == "55+", "Age"] <- "55"
+  all_dat[[2]][,2] <- as.numeric(all_dat[[2]][,2])
+  
+  all_dat[[3]][all_dat[[3]]$Age == "110+", "Age"] <- "110"
+  all_dat[[4]][all_dat[[4]]$Age == "110+", "Age"] <- "110"
+  all_dat[[3]][,2] <- as.numeric(all_dat[[3]][,"Age"])
+  all_dat[[4]][,2] <- as.numeric(all_dat[[4]][,"Age"])
+  
+  
+  all_dat[[2]] <- reshape(all_dat[[2]],
+                          direction = "wide",
+                          timevar = "Year",
+                          idvar = "Age")
+  
+  all_dat[[3]] <- reshape(all_dat[[3]][,c("Year","Age","Lx")],
+                          direction = "wide",
+                          timevar = "Year",
+                          idvar = "Age")
+  
+  all_dat[[4]] <- reshape(all_dat[[4]][,c("Year","Age","Lx")],
+                          direction = "wide",
+                          timevar = "Year",
+                          idvar = "Age")
+  
+  if(save){
+    
+    write.table(all_dat[[1]], "datos/pop.txt")
+    write.table(all_dat[[2]], "datos/asfrs.txt")
+    write.table(all_dat[[3]], "datos/Lf.txt")
+    write.table(all_dat[[4]], "datos/Lm.txt")
+    write.table(last_pop, "datos/last_pop.txt")
+    
+    
+  }
+  
+  return(all_dat)
+  
+}
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+ini_year <- max(min(pop$Year), min(f$Year), min(Lf$Year), min(Lm$Year))
+
+dat <- data_prep(pop, f, Lf, Lm, ini_year, save = TRUE)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+# Extraer:
+# Población inicial femenina
+Nf <- dat[[1]][,"Female"]
+# Población inicial masculina
+Nm <- dat[[1]][,"Male"]
+# tasas de fecundidad
+f <- rep(0, length(Nm))
+f <- dat[[2]][,-1]
+# Años persona mujeres y hombres
+Lf <- dat[[3]][,-1]
+Lm <- dat[[4]][,-1]
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+# función para preparar los datos para el gráfico pirámide
+reshape_long <- function(dat, yr, int){
+  dat <- as.data.frame(dat)
+  maxage <- nrow(dat) - 1
+  names(dat) <- c(rbind((paste0("f_", yr)), paste0("m_", yr)))
+  
+  dat0 <- reshape(data = dat,
+                  varying = names(dat),
+                  direction = "long",
+                  sep = "_")
+  names(dat0) <- c("yr", "count", "count")
+  ages_lon <- rbind(dat0[,1:2], dat0[,c(1,3)])
+  ages_lon$group <- c(rep("females", nrow(dat0)), rep("males", nrow(dat0)))
+  ages_lon$age <- rep(seq(0, maxage, int), 2)
+  totals_v <- apply(dat, 2, sum)
+  totals <- (c(totals_v[c(TRUE, FALSE)], totals_v[c(FALSE, TRUE)]))
+  ages_lon$totals <- rep(totals, each = length(seq(0, maxage, int)))
+  ages_lon$pct <- ages_lon$count / ages_lon$totals
+  
+  ages_pyr <- ages_lon
+  ages_pyr$pct[ages_pyr$group == "males"] <- -ages_lon$pct[ages_lon$group == "males"]
+  
+  return(ages_pyr)
+}
+
+# gráfico pirámide
+pd_plot <- function(dat, int, pt = FALSE, country){
+  bly_palette <- c("red", "blue")
+  
+  # Split data into males and females
+  females <- subset(dat, group == 'females')
+  males <- subset(dat, group == 'males')
+  
+  # Prepare data
+  ages <- females$age
+  pct_females <- females$pct
+  pct_males <- males$pct
+  
+  max_pct <- max(abs(dat$pct), na.rm = TRUE)
+  
+  # Set up plotting area with reversed y-axis
+  par(mar = c(5, 5, 4, 2) + 0.1)
+  plot(NULL, xlim = c(-max_pct, max_pct), ylim = c(min(ages) - int/2, max(ages) + int/2),
+       xlab = "Percent of Population", ylab = "Age",
+       main = paste("Estructura por Edad de la Población de", country, ":", unique(dat$yr)),
+       axes = FALSE)
+  
+  axis(1, at = seq(-max_pct, max_pct, length.out = 5), labels = abs(seq(-max_pct, max_pct, length.out = 5)))
+  axis(2, at = ages, labels = ages, las = 2)
+  box()
+  
+  # Draw bars for females and males
+  half_int <- int / 2
+  for (i in seq_along(ages)){
+    rect(0, ages[i] - half_int, pct_females[i], ages[i] + half_int, col = bly_palette[1], border = NA)
+    rect(0, ages[i] - half_int, pct_males[i], ages[i] + half_int, col = bly_palette[2], border = NA)
+  }
+  
+  # Add legend
+  legend("topright", legend = c("Females", "Males"), fill = bly_palette, bty = "n")
+}
+
+# matriz de Leslie modificada
+leslie <- function(L, m, int) {
+  n <- length(L)
+  M <- matrix(0, n, n)
+  
+  if(length(L) != length(m)){
+    m_aux <- rep(0, length(L))
+    m_aux[13:56] <- m
+    m <- m_aux
+  }
+  
+  # Survival rates
+  px <- exp(diff(log(L)))
+  diag(M[-1, -ncol(M)]) <- px
+  M[n, n - 1] <- M[n, n] <- L[n] / (L[n - 1] + L[n])
+  M[is.na(M)] <- 0
+  
+  # Fertility rates
+  for(i in 1:(n - 1)) {
+    if(m[i] != 0 | m[i + 1] != 0) {
+      M[1, i] <- (m[i] + m[i + 1] * L[i + 1] / L[i]) * int / 2
+    }
+  }
+  return(M)
+}
+```
+
+2.  Proyectar la población por sexo y edad desde el primer año posible hasta el último año con datos disponibles.
+
+    **Importante:** Para obtener la proyección es necesario modificar las funciones desarrolladas en clase teniendo en cuenta las diferencias en la estructura de los datos.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+# PASO 5: Función para proyectar población
+
+# Proyección por sexo y edad usando tasas y tablas que varían por año
+# f, Lf, Lm: matrices (filas = edades, columnas = años)
+#   - f: filas = edades fértiles (12–55), columnas = años
+#   - Lf, Lm: filas = edades 0–110, columnas = años
+# Nf, Nm: vectores de población base (mujeres/hombres) por edad en ini_year
+# iter: cantidad máxima de pasos de proyección
+# int: intervalo (en tu caso 1 año)
+# srb: sex ratio at birth (varones por mujer, ej. 1.05)
+# ini_year: año inicial de la proyección
+
+p_pop_t <- function(country, f, Lf, Lm, Nf, Nm, iter, int, srb, ini_year){
+ 
+  # Número de edades de la población (debería coincidir con Nf, Lf, Lm)
+  n_ages <- length(Nf)
+  
+  # Asegurar que iter no exceda la cantidad de años disponibles en las matrices
+  n_years_data <- min(ncol(f), ncol(Lf), ncol(Lm))
+  iter <- min(iter, n_years_data)
+  
+  # Matrices para guardar población femenina y masculina
+  popF <- matrix(NA, nrow = n_ages, ncol = iter)
+  popM <- matrix(NA, nrow = n_ages, ncol = iter)
+  
+  # Copiar nombres de filas (edades) desde Lf, si existen
+  if (!is.null(rownames(Lf))) {
+    rownames(popF) <- rownames(Lf)
+    rownames(popM) <- rownames(Lf)
+  }
+  
+  # Año inicial: columna 1
+  popF[, 1] <- Nf
+  popM[, 1] <- Nm
+  
+  # Índices de edades fértiles en la población:
+  # Nf[1] = edad 0, ..., Nf[13] = edad 12, ..., Nf[56] = edad 55
+  fert_idx <- 13:56   # 12–55
+  
+  # Proyección año a año
+  for (t in 1:(iter - 1)) {
+    
+    # Matrices de Leslie para el año t (solo supervivencia; m = 0 porque
+    # la fecundidad la tratamos aparte con ASFR por año)
+    LmatF <- leslie(L = Lf[, t], m = rep(0, n_ages), int = int)
+    LmatM <- leslie(L = Lm[, t], m = rep(0, n_ages), int = int)
+    
+    # Proyección por componentes (supervivencia)
+    popF[, t + 1] <- LmatF %*% popF[, t]
+    popM[, t + 1] <- LmatM %*% popM[, t]
+    
+    # Nacimientos en el año t:
+    #  - Usamos SOLO mujeres en edades fértiles (filas 13:56 de popF)
+    #  - f[, t] contiene las tasas para edades 12–55, en ese mismo orden
+    births_t <- sum(popF[fert_idx, t] * f[, t], na.rm = TRUE)
+    
+    # Repartir nacimientos por sexo según tasa de masculinidad al nacer (srb)
+    popF[1, t + 1] <- births_t / (1 + srb)        # niñas (edad 0)
+    popM[1, t + 1] <- births_t * srb / (1 + srb)  # varones (edad 0)
+  }
+  
+  # Nombres de columnas con los años
+  years <- seq(ini_year, by = int, length.out = iter)
+  colnames(popF) <- paste0("F_", years)
+  colnames(popM) <- paste0("M_", years)
+  
+  # Salida: matriz con mujeres primero y luego hombres
+  out <- cbind(popF, popM)
+  return(out)
+}
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# PASO 6: Ejecutar la proyección 
+
+iter <- 130
+
+sw_pop <- p_pop_t(
+  country = "USA",
+  f = f,
+  Lf = Lf/100000,
+  Lm = Lm/100000,
+  Nf = Nf,
+  Nm = Nm,
+  iter = iter,
+  int = 1,
+  srb = 1.05,
+  ini_year = ini_year
+)
+
+```
+
+### 3. Comparar la estructura por edades obtenida con el método de los componentes con la estructura observada en el último año.
+
+## Comparación entre la estructura observada y la estructura proyectada
+
+En esta sección se compara la estructura por edades observada en el último año disponible en las bases de HMD/HFD con la estructura obtenida mediante el método de los componentes ajustado con las tasas específicas de fecundidad y las tablas de mortalidad de período.
+
+Para ello se construyeron dos pirámides de población:
+
+-   La pirámide **observada**, correspondiente al último año con datos disponibles en HMD, que representa la estructura real de la población por sexo y edad.
+-   La pirámide **proyectada**, obtenida mediante la aplicación del método de los componentes desde el año inicial hasta el último año observado, utilizando como insumos la población base, las tasas específicas de fecundidad por edad y las tablas de mortalidad de mujeres y hombres.
+
+```{r}
+#| echo: false
+
+
+# Cargar datos más recientes de estructura por edad y sexo de la población
+
+lp <- read.table("datos/last_pop.txt", header = TRUE)
+names(lp) <- c("year", "age", "female", "male")
+
+# Año del último dato disponible
+year_lp <- unique(lp$year)
+
+# Pirámide observada (último año disponible)
+lpp_obs <- reshape_long(
+  dat = lp[, c("female", "male")],
+  yr  = year_lp,
+  int = 1
+)
+pd_plot(dat = lpp_obs, int = 1, country = "USA (observada)")
+
+# Pirámide proyectada:
+# usamos las dos últimas columnas de la matriz de proyección sw_pop
+proj_last <- sw_pop[, c(ncol(sw_pop) - 1, ncol(sw_pop))]
+
+lpp_proj <- reshape_long(
+  dat = proj_last,
+  yr  = year_lp,
+  int = 1
+)
+pd_plot(dat = lpp_proj, int = 1, country = "USA (proyectada)")
+```
+
+## Resultados de la comparación
+
+La comparación entre la pirámide **observada (2024)** y la **proyectada (2024)** muestra un grado elevado de coherencia entre ambas estructuras. Las principales conclusiones son las siguientes:
+
+### Estructura general
+
+Ambas pirámides presentan una forma muy similar a lo largo de todo el perfil etario, lo que indica que el modelo basado en:
+
+-   tablas de mortalidad por período ($L_x$ para mujeres y hombres),
+-   tasas específicas de fecundidad por edad,
+-   razón de masculinidad al nacer ($SRB$),
+
+reproduce adecuadamente la dinámica demográfica central de la población de Estados Unidos.
+
+### Edades jóvenes (0–15 años)
+
+Las principales diferencias se observan en la base de la pirámide.
+
+-   La población **proyectada** muestra una base ligeramente más regular, mientras que la población **observada** presenta ondulaciones y variaciones más marcadas entre cohortes recientes.
+-   Estas diferencias son esperables, ya que el modelo **no incluye migración**, un componente clave en la estructura real de la población de EE.UU., especialmente en edades jóvenes y adultas jóvenes.
+
+La ausencia de migración tiende a **suavizar** las cohortes proyectadas y a subestimar o sobrestimar algunos grupos quinquenales recientes.
+
+### Edades centrales (20–60 años)
+
+En estas edades, ambas pirámides coinciden notablemente.
+
+-   La forma general, los tamaños relativos y el balance por sexo se reproducen con alta precisión.
+-   Esto refleja que las **tasas de sobrevivencia del período** y la estructura original del año inicial permiten proyectar adecuadamente el "cuerpo" de la pirámide.
+
+### Edades avanzadas (65$+$)
+
+Las diferencias vuelven a ampliarse ligeramente hacia la cúspide de la pirámide.
+
+-   La población observada muestra una mayor supervivencia en edades muy avanzadas (especialmente mujeres),\
+    mientras que la población proyectada presenta una reducción más marcada en los grupos más longevos.
+-   Esto es coherente: las **tablas de mortalidad por período** no incorporan las **mejoras futuras** en sobrevivencia, por lo que la proyección tiende a **subestimar** la longevidad real.
+
+### Conclusión
+
+La estructura proyectada para 2024 reproduce de manera consistente la forma observada, especialmente en las edades centrales. Las diferencias en los extremos del perfil etario (jóvenes y longevos) responden a las limitaciones propias del **método de los componentes**:
+
+### ausencia de migración
+
+Aunque el modelo no incorpora migración como componente explícito, **sí hereda indirectamente los efectos históricos de la inmigración**, ya que:
+
+-   la población inicial contiene migrantes,
+-   las tasas de fecundidad se calculan sobre población residente,
+-   las tasas de mortalidad reflejan la composición real del país.
+
+Sin embargo, al no proyectar migración a futuro, se observan diferencias en:
+
+-   edades jóvenes (suavización del extremo inferior),
+-   edades adultas jóvenes (subestimación en 18–40),
+-   edades avanzadas (subestimación por ausencia de mejoras futuras en mortalidad).
+
+### Uso de tasas de fecundidad y mortalidad del período sin mejoras futuras
+
+Cuando el modelo utiliza tasas de fecundidad y mortalidad **del período**, dichas tasas representan únicamente el comportamiento observado en un año específico. Esto implica que:
+
+-   no se incorporan **tendencias futuras**, como el aumento sostenido en la esperanza de vida,
+-   no se consideran cambios en la fecundidad asociados a transformaciones sociales, económicas o migratorias,
+-   la proyección asume que las condiciones actuales **se mantienen constantes** a lo largo del tiempo.
+
+En consecuencia, la población proyectada tiende a **subestimar la longevidad en edades avanzadas**, ya que no incluye las mejoras que efectivamente ocurren en mortalidad año tras año.
+
+### Suavización automática de las cohortes por efecto del modelo Leslie
+
+El modelo Leslie aplica:
+
+1.  una matriz de **supervivencia** que desplaza cada cohorte un año hacia adelante, y
+2.  una matriz de **fecundidad** que genera nacimientos de manera consistente entre años.
+
+Este mecanismo produce una proyección donde:
+
+-   las cohortes se vuelven **más suaves y regulares**,
+-   se eliminan las oscilaciones abruptas presentes en los datos reales,
+-   las fluctuaciones que en la realidad surgen por migración, crisis económicas o shocks de fecundidad **no aparecen** en el modelo.
+
+Por ello, las pirámides proyectadas suelen mostrar curvas más **limpias y homogéneas**, en contraste con las pirámides observadas, donde la historia demográfica introduce irregularidades visibles en segmentos específicos de edad.
+
+A pesar de estas limitaciones, el método ofrece una aproximación sólida y coherente de la estructura poblacional real de Estados Unidos en el último año disponible.
+
+### 4. Describir en detalle los procedimientos utilizados y los resultados obtenidos.
+
+### Preparación y descarga de datos
+
+Para el ejercicio se seleccionó **Estados Unidos** como país de análisis. Se descargaron datos de las fuentes indicadas en la consigna:
+
+-   **Tamaño de población por edad y sexo** (Human Mortality Database, *Period Data → Population Size → 1-year age groups*).
+-   **Tasas específicas de fecundidad por edad (ASFR)** (Human Fertility Database, *Age-Specific Data → Period → Age-Specific Fertility Rates*).
+-   **Tablas de mortalidad por período** para mujeres y hombres (Human Mortality Database, *Period Life Tables → 1x1*).
+
+Los archivos fueron leídos en R y procesados mediante la función `data_prep()`, la cual:
+
+-   filtra los datos desde el primer año común disponible,\
+-   normaliza categorías de edad (por ejemplo, “110+” a “110”),\
+-   convierte edades en valores numéricos,
+-   reorganiza los datos en formato ancho según año,
+-   genera la población inicial del año utilizado para comenzar la proyección,\
+-   guarda un archivo `last_pop.txt` con la estructura observada más reciente, utilizada luego para la comparación final.
+
+El año inicial obtenido automáticamente en el caso de Estados Unidos fue de 1933, con lo cual la proyección comienza a partir de la estructura poblacional observada en ese año.
+
+------------------------------------------------------------------------
+
+### Construcción del modelo de proyección
+
+Las tablas de mortalidad procesadas (`Lf`, `Lm`) contienen valores de $L_x$ para edades $0$ a $110$ por año.\
+Las tasas específicas de fecundidad contienen valores para edades fértiles $12$ a $55$.
+
+Se utilizó una variante del modelo Leslie, adaptada para que:
+
+-   las **tasas de supervivencia** provengan directamente de $L_x$ observados por año,\
+-   las **tasas específicas de fecundidad** provengan de las ASFR reales de la HFD,\
+-   la **razón de masculinidad al nacer** se mantenga fija en:
+
+$$
+SRB = 1.05
+$$
+
+La función `p_pop_t()` realiza la proyección año a año mediante:
+
+1.  Construcción de matrices Leslie anuales basadas únicamente en mortalidad.
+2.  Aplicación de las tasas de fecundidad correctas solo a las edades fértiles (filas 13–56 del vector poblacional).
+3.  Distribución de nacimientos entre mujeres y varones según el $SRB$.
+4.  Almacenamiento de la población femenina y masculina proyectada para cada año.
+
+La proyección total se extendió por:
+
+$$
+\text{iter} = 130 \text{ años}
+$$
+
+lo cual permite llegar hasta el año 2024, último año disponible en los datos descargados.
+
+------------------------------------------------------------------------
+
+### Generación de pirámides poblacionales
+
+Se generaron dos pirámides para el año final ($2024$):
+
+-   una **observada**, a partir del archivo `last_pop.txt`,\
+-   una **proyectada**, a partir de las últimas dos columnas de `sw_pop`, correspondientes a $F_{2024}$ y $M_{2024}$.
+
+Ambas estructuras se transformaron al formato largo mediante `reshape_long()`, y se graficaron con `pd_plot()`.
+
+------------------------------------------------------------------------
+
+### Resultados obtenidos
+
+#### Estructura observada vs proyectada
+
+La comparación entre las pirámides muestra lo siguiente:
+
+##### Edades jóvenes (0–15)
+
+-   La base de la pirámide **proyectada** es más regular y menos ondulada que la observada.\
+-   La estructura observada exhibe cohortes más irregulares, asociadas a fluctuaciones recientes en migración y fecundidad.\
+-   Estas diferencias surgen porque el modelo **no incluye migración futura**, y por lo tanto los nacimientos se generan únicamente a partir de las mujeres presentes en la población inicial.
+
+##### Edades centrales (20–60)
+
+-   Aquí la coincidencia entre ambas pirámides es notable.\
+-   La forma, la distribución por sexo y los tamaños relativos son muy similares.\
+-   Esto sugiere que las **tasas específicas de fecundidad y mortalidad del período** permiten reproducir de forma adecuada el “cuerpo” de la pirámide estadounidense.
+
+##### Edades avanzadas (65+)
+
+-   La pirámide observada presenta mayor supervivencia a edades muy altas, particularmente entre mujeres.\
+-   La pirámide proyectada muestra una reducción más pronunciada en los grupos longevos.\
+-   Esto se explica porque las **tablas de mortalidad por período no incluyen mejoras futuras en la supervivencia**, y por ello la proyección tiende a subestimar la longevidad real.
+
+------------------------------------------------------------------------
+
+### Conclusión general
+
+El modelo reproduce adecuadamente la forma general de la estructura poblacional de Estados Unidos en 2024, especialmente en edades centrales.\
+Las discrepancias en edades jóvenes y avanzadas se explican por:
+
+-   ausencia de migración en la proyección,\
+-   ausencia de mejoras en mortalidad,\
+-   suavización de cohortes debido a las propiedades del modelo Leslie.

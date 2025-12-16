@@ -1,0 +1,1387 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\documentclass[
+  spanish,
+]{article}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\ifLuaTeX
+\usepackage[bidi=basic]{babel}
+\else
+\usepackage[bidi=default]{babel}
+\fi
+% get rid of language-specific shorthands (see #6817):
+\let\LanguageShortHands\languageshorthands
+\def\languageshorthands#1{}
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Tarea 5},
+  pdfauthor={Juan M Karawacki; Bruno Pintos},
+  pdflang={es},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Tarea 5}
+\author{Juan M Karawacki \and Bruno Pintos}
+\date{9-17-2025}
+
+\begin{document}
+\maketitle
+
+\subsection{Ejercicio 4.19 (Test de
+Bechdel)}\label{ejercicio-4.19-test-de-bechdel}
+
+En este ejercicio analizaremos \(\pi\), la proporción de películas que
+pasan el test de Bechdel, usando los datos de \texttt{bechdel}. Para
+cada escenario a continuación, especifica el modelo posterior de \(\pi\)
+y calcula la media y la moda posteriores.
+
+\subsubsection{1. John tiene una priori plana Beta(1, 1) y analiza
+películas del año
+1980.}\label{john-tiene-una-priori-plana-beta1-1-y-analiza-peluxedculas-del-auxf1o-1980.}
+
+\pandocbounded{\includegraphics[keepaspectratio]{tarea_5_files/figure-latex/unnamed-chunk-3-1.pdf}}
+
+Partimos de que la priori de John es una Beta(1, 1), es decir, una
+distribución uniforme sobre el intervalo {[}0,1{]}. Esto implica que
+inicialmente todos los valores posibles de \(\pi\) son igualmente
+probables, por lo tanto la priori no aporta información real previa.
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "format"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{longtable}[t]{ccc}
+\caption{\label{tab:unnamed-chunk-5}Películas 1980 – Test de Bechdel}\\
+\toprule
+Resultado & Cantidad & Proporción\\
+\midrule
+FAIL & 10 & 0.71\\
+PASS & 4 & 0.29\\
+Total & 14 & 1.00\\
+\bottomrule
+\end{longtable}
+
+Al filtrar las películas del año 1980, observamos que de las 14
+películas evaluadas, 4 pasaron el test de Bechdel y 10 no lo pasaron.
+
+\newpage
+
+\pandocbounded{\includegraphics[keepaspectratio]{tarea_5_files/figure-latex/unnamed-chunk-6-1.pdf}}
+
+Al actualizar la priori con los datos, obtenemos la posterior y dado que
+la priori no era informativa, la posterior coincide perfectamente con la
+likelihood ya que adopta toda la información que recibe.
+
+En este caso, la distribución posterior es:
+\(\pi \sim \text{Beta}(5, 11)\), esto lo sabemos ya que, como aprendimos
+en la Tarea 4, usando
+\texttt{summarize\_beta\_binomial(alpha\ =\ 1,\ beta\ =\ 1,\ y\ =\ 4,\ n\ =\ 14)}
+automaticamente obtenemos tanto el \(\alpha_{\text{post}}\) como
+\(\beta_{\text{post}}\)
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "format"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{longtable}[t]{ccc}
+\caption{\label{tab:unnamed-chunk-8}Resumen: media y moda de pi}\\
+\toprule
+Modelo & Media & Moda\\
+\midrule
+Priori & 0.500 & NA\\
+Posterior & 0.312 & 0.286\\
+\bottomrule
+\end{longtable}
+
+En conclusión, la posterior tiene una media de 0.31 y una moda de 0.29
+aproximadamente. Esto sugiere que, según los datos de 1980, la
+proporción de películas que pasaron el test de Bechdel fue cercana al
+30\%, lo cual tiene lógica con lo mencionado en la Tabla 1.
+
+\subsubsection{2. Al día siguiente, John analiza películas del año 1990,
+construyendo su análisis a partir del realizado el día
+anterior.}\label{al-duxeda-siguiente-john-analiza-peluxedculas-del-auxf1o-1990-construyendo-su-anuxe1lisis-a-partir-del-realizado-el-duxeda-anterior.}
+
+Ahora filtramos nuevamente las peliculas pero esta vez analizamos las de
+los 90.
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "format"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{longtable}[t]{ccc}
+\caption{\label{tab:unnamed-chunk-11}Películas 1990 – Test de Bechdel}\\
+\toprule
+Resultado & Cantidad & Proporción\\
+\midrule
+FAIL & 9 & 0.6\\
+PASS & 6 & 0.4\\
+Total & 15 & 1.0\\
+\bottomrule
+\end{longtable}
+
+Esta vez, el 40\% de las películas aprobaron el test de Bechdel, lo que
+representa una evidencia un poco más optimista que la observada en 1980
+y dado que John ya actualizó su priori con esos datos, ahora utiliza
+como priori la distribución: \(\pi \sim \text{Beta}(5, 11)\)
+
+\pandocbounded{\includegraphics[keepaspectratio]{tarea_5_files/figure-latex/unnamed-chunk-12-1.pdf}}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "format"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{longtable}[t]{ccc}
+\caption{\label{tab:unnamed-chunk-14}Resumen: media y moda de pi – Películas 1990}\\
+\toprule
+Modelo & Media & Moda\\
+\midrule
+Priori & 0.312 & 0.286\\
+Posterior & 0.355 & 0.345\\
+\bottomrule
+\end{longtable}
+
+La priori ahora aporta información relevante basada en los datos previos
+de 1980, de manera que la posterior se posiciona entre la evidencia
+anterior y los nuevos datos de 1990 con distribución
+\(\pi \sim \text{Beta}(11, 20)\). Este ajuste conservador combina la
+información previa con la nueva, reflejándose en un aumento de la media
+de \(\pi\) de 0.31 a 0.35, mientras que la moda también se desplaza
+ligeramente, mostrando cómo la priori influye en la actualización de
+nuestra creencia sin exagerar el efecto de los nuevos datos.
+
+\subsubsection{3. El tercer día, John analiza películas del año 2000,
+nuevamente acumulando sobre sus análi1is de los dos días
+previos.}\label{el-tercer-duxeda-john-analiza-peluxedculas-del-auxf1o-2000-nuevamente-acumulando-sobre-sus-anuxe1li1is-de-los-dos-duxedas-previos.}
+
+Volvemos a filtrar esta vez para las peliculas del 2000
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "format"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{longtable}[t]{ccc}
+\caption{\label{tab:unnamed-chunk-17}Películas 2000 – Test de Bechdel}\\
+\toprule
+Resultado & Cantidad & Proporción\\
+\midrule
+FAIL & 34 & 0.54\\
+PASS & 29 & 0.46\\
+Total & 63 & 1.00\\
+\bottomrule
+\end{longtable}
+
+Ahora, el 46\% de las películas aprobaron el test de Bechdel, la
+evidencia más positiva hasta el momento, lo cual tiene sentido, ya que,
+dada la forma en que funciona el test, es esperable que en tiempos más
+modernos los resultados sean mejores.
+
+\pandocbounded{\includegraphics[keepaspectratio]{tarea_5_files/figure-latex/unnamed-chunk-18-1.pdf}}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "format"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{longtable}[t]{ccc}
+\caption{\label{tab:unnamed-chunk-20}Resumen: media y moda de pi – Películas 2000}\\
+\toprule
+Modelo & Media & Moda\\
+\midrule
+Priori & 0.355 & 0.345\\
+Posterior & 0.426 & 0.424\\
+\bottomrule
+\end{longtable}
+
+La priori refleja la información acumulada de años anteriores, mientras
+que la posterior combina esa información con los datos más recientes de
+los 2000 , donde \(\pi \sim \text{Beta}(40, 54)\). Como resultado, la
+media de \(\pi\) aumenta a 0.43 y la moda a 0.42, indicando un efecto
+positivo consistente con la tendencia de películas más modernas
+mostrando una mayor proporción de aprobaciones en el test de Bechdel.
+
+\subsubsection{4. Jenna, en cambio, comienza su análisis también con una
+priori Beta(1, 1), pero analiza películas de 1980, 1990 y 2000 todas en
+el mismo
+día.}\label{jenna-en-cambio-comienza-su-anuxe1lisis-tambiuxe9n-con-una-priori-beta1-1-pero-analiza-peluxedculas-de-1980-1990-y-2000-todas-en-el-mismo-duxeda.}
+
+Esta vez analizamos todas las películas de los años anteriores, es
+decir, 1980, 1990 y 2000, sumando un total de 92 películas.
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "format"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{longtable}[t]{ccc}
+\caption{\label{tab:unnamed-chunk-23}Películas 1980-2000 – Test de Bechdel}\\
+\toprule
+Resultado & Cantidad & Proporción\\
+\midrule
+FAIL & 53 & 0.576\\
+PASS & 39 & 0.424\\
+Total & 92 & 1.000\\
+\bottomrule
+\end{longtable}
+
+\pandocbounded{\includegraphics[keepaspectratio]{tarea_5_files/figure-latex/unnamed-chunk-24-1.pdf}}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "format"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{longtable}[t]{ccc}
+\caption{\label{tab:unnamed-chunk-26}Resumen: media y moda de pi – Películas 1980-2000}\\
+\toprule
+Modelo & Media & Moda\\
+\midrule
+Priori & 0.500 & NA\\
+Posterior & 0.426 & 0.424\\
+\bottomrule
+\end{longtable}
+
+Al analizar juntas las películas de 1980, 1990 y 2000, Jenna parte de
+una priori no informativa (Beta(1,1)) y obtiene una posterior con media
+de 0.43 y moda de 0.42 que distribuye \(\pi \sim \text{Beta}(40, 54)\),
+reflejando la evidencia combinada de todas las décadas. Comparando con
+John, que fue actualizando su posterior día a día, vemos que ambos
+enfoques llevan a la misma distribución y la misma conclusión: la
+proporción de películas que pasan el test de Bechdel aumenta con el
+tiempo. Sin embargo, mientras la actualización secuencial de John
+refleja paso a paso el efecto de cada año, el enfoque de Jenna combina
+toda la información de una sola vez, produciendo directamente una
+estimación consolidada de la tendencia general a lo largo de las tres
+décadas.
+
+\newpage
+
+\subsection{Ejercicio 5.7 (Copa del
+Mundo)}\label{ejercicio-5.7-copa-del-mundo}
+
+Sea \(\lambda\) el número promedio de goles anotados en un partido de la
+Copa Mundial Femenina. Analizaremos \(\lambda\) mediante el siguiente
+modelo Gamma-Poisson, donde los datos \(Y_i\) son el número observado de
+goles en una muestra de partidos de la Copa del Mundo:
+
+\[
+Y_i \mid \lambda \sim \text{Pois}(\lambda), \quad
+\lambda \sim \text{Gamma}(1, 0.25)
+\]
+
+\subsubsection{\texorpdfstring{1. Grafique y resuma nuestro conocimiento
+priori sobre
+\(\lambda\)}{1. Grafique y resuma nuestro conocimiento priori sobre \textbackslash lambda}}\label{grafique-y-resuma-nuestro-conocimiento-priori-sobre-lambda}
+
+\pandocbounded{\includegraphics[keepaspectratio]{tarea_5_files/figure-latex/unnamed-chunk-27-1.pdf}}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "format"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{longtable}[t]{cccc}
+\caption{\label{tab:unnamed-chunk-29}Resumen de la distribucion prior Gamma(1, 0.25)}\\
+\toprule
+Media & Moda & Varianza & Desviacion\\
+\midrule
+4 & 0 & 16 & 4\\
+\bottomrule
+\end{longtable}
+
+La distribución a priori de \(\lambda\) es asimétrica y sesgada hacia la
+derecha, reflejando que creemos que valores pequeños de goles por
+partido son más probables, aunque no descartamos valores mayores. La
+media de la prior es 4, la varianza es 16, lo que indica bastante
+incertidumbre sobre \(\lambda\), y la probabilidad más alta a priori se
+concentra cerca de valores bajos.
+
+\subsubsection{\texorpdfstring{2. ¿Por qué es razonable usar un modelo
+Poisson para nuestros datos
+\(Y_i\)?}{2. ¿Por qué es razonable usar un modelo Poisson para nuestros datos Y\_i?}}\label{por-quuxe9-es-razonable-usar-un-modelo-poisson-para-nuestros-datos-y_i}
+
+Cada \(Y_i\) representa el número de goles anotados en un partido, es
+decir, un conteo de eventos discretos que ocurren de manera
+independiente durante el encuentro. La distribución Poisson es adecuada
+porque modela eventos que suceden a una tasa promedio constante
+(\(\lambda\)) dentro de un intervalo fijo, en este caso, la duración del
+partido, y además no requiere un límite máximo de goles, ya que puede
+tomar cualquier valor entero no negativo.
+
+\subsubsection{\texorpdfstring{3. El conjunto de datos
+\texttt{wwc\_2019\_matches} del paquete \texttt{fivethirtyeight} incluye
+el número de goles anotados por los dos equipos en cada partido de la
+Copa Mundial Femenina 2019. Defina, grafique y discuta el número total
+de goles por
+partido:}{3. El conjunto de datos wwc\_2019\_matches del paquete fivethirtyeight incluye el número de goles anotados por los dos equipos en cada partido de la Copa Mundial Femenina 2019. Defina, grafique y discuta el número total de goles por partido:}}\label{el-conjunto-de-datos-wwc_2019_matches-del-paquete-fivethirtyeight-incluye-el-nuxfamero-de-goles-anotados-por-los-dos-equipos-en-cada-partido-de-la-copa-mundial-femenina-2019.-defina-grafique-y-discuta-el-nuxfamero-total-de-goles-por-partido}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(fivethirtyeight)}
+\FunctionTok{data}\NormalTok{(}\StringTok{"wwc\_2019\_matches"}\NormalTok{)}
+\NormalTok{wwc\_2019\_matches }\OtherTok{\textless{}{-}}\NormalTok{ wwc\_2019\_matches }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{total\_goals =}\NormalTok{ score1 }\SpecialCharTok{+}\NormalTok{ score2)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{tarea_5_files/figure-latex/unnamed-chunk-31-1.pdf}}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "format"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{longtable}[t]{cc}
+\caption{\label{tab:unnamed-chunk-31}Resumen del total de goles por partido – Copa Mundial Femenina 2019}\\
+\toprule
+Estadistico & Total\_Goles\\
+\midrule
+Minimo & 0.00\\
+1er Cuartil & 2.00\\
+Mediana & 3.00\\
+Media & 2.81\\
+3er Cuartil & 3.00\\
+\addlinespace
+Maximo & 13.00\\
+\bottomrule
+\end{longtable}
+
+Al sumar los goles de ambos equipos, definimos el total de goles por
+partido (total\_goals). La distribución de estos totales, visualizada
+mediante un histograma, muestra que la mayoría de los partidos tuvieron
+entre 2 y 5 goles, con una mediana de 3 y un promedio de aproximadamente
+2.81 goles por partido. Aunque hay algunos partidos con valores extremos
+(hasta 13 goles), la distribución es ligeramente sesgada a la derecha,
+indicando que los partidos con muchos goles son menos frecuentes. Esta
+información sugiere que modelar los goles por partido con un enfoque de
+conteo discreto, como la distribución Poisson y el \(\lambda\) que
+elegimos, es razonable.
+
+\newpage
+
+\subsubsection{\texorpdfstring{4. Identifique el modelo posterior de
+\(\lambda\) y verifique su respuesta usando
+\texttt{summarize\_gamma\_poisson()}.}{4. Identifique el modelo posterior de \textbackslash lambda y verifique su respuesta usando summarize\_gamma\_poisson().}}\label{identifique-el-modelo-posterior-de-lambda-y-verifique-su-respuesta-usando-summarize_gamma_poisson.}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+## Warning in attr(.knitEnv$meta, "knit_meta_id"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "align"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{verbatim}
+## Warning in attr(x, "format"): 'xfun::attr()' está en desuso.
+## Utilizar 'xfun::attr2()' en su lugar.
+## Ver help("Deprecated")
+\end{verbatim}
+
+\begin{longtable}[t]{ccccccc}
+\caption{\label{tab:unnamed-chunk-33}Resumen de la distribución prior y posterior de lambda}\\
+\toprule
+Modelo & Shape & Rate & Media & Moda & Varianza & Desviacion\\
+\midrule
+Priori & 1 & 0.25 & 4.000 & 0.000 & 16.000 & 4.000\\
+Posterior & 147 & 52.25 & 2.813 & 2.794 & 0.054 & 0.232\\
+\bottomrule
+\end{longtable}
+
+\subsubsection{\texorpdfstring{5. Grafique la función de densidad
+priori, la función de verosimilitud (likelihood) y la densidad posterior
+de \(\lambda\). Describa cómo evoluciona nuestro conocimiento de
+\(\lambda\) desde la prior hasta la
+posterior.}{5. Grafique la función de densidad priori, la función de verosimilitud (likelihood) y la densidad posterior de \textbackslash lambda. Describa cómo evoluciona nuestro conocimiento de \textbackslash lambda desde la prior hasta la posterior.}}\label{grafique-la-funciuxf3n-de-densidad-priori-la-funciuxf3n-de-verosimilitud-likelihood-y-la-densidad-posterior-de-lambda.-describa-cuxf3mo-evoluciona-nuestro-conocimiento-de-lambda-desde-la-prior-hasta-la-posterior.}
+
+\pandocbounded{\includegraphics[keepaspectratio]{tarea_5_files/figure-latex/unnamed-chunk-34-1.pdf}}
+El gráfico muestra la evolución de nuestra creencia sobre \(\lambda\),
+el promedio de goles por partido. La prior Gamma(1, 0.25) es fuertemente
+sesgada hacia la derecha, reflejando que inicialmente creíamos que
+valores pequeños de \(\lambda\) eran más probables, aunque permitíamos
+valores grandes. En la posterior la varianza disminuye notablemente. En
+conjunto con la likelihood, esto muestra cómo los datos recientes
+ajustan y reducen la incertidumbre de nuestra estimación de \(\lambda\).
+
+\section{Ejercicio 5.12 (Cerebros de
+control)}\label{ejercicio-5.12-cerebros-de-control}
+
+Sea \(\mu\) el \textbf{volumen medio} del hipocampo entre personas que
+\textbf{no han sido diagnosticadas con una conmoción}.\\
+Analizaremos \(\mu\) con el siguiente \textbf{modelo Normal--Normal},
+donde los datos \(Y\) representan los volúmenes hipocampales de los
+individuos de este grupo:
+
+\[
+Y \mid \mu \stackrel{ind}{\sim} \text{Normal}(\mu,\, \sigma = 0.5), 
+\qquad 
+\mu \sim \text{Normal}(\theta = 6.5,\, \tau = 0.4).
+\]
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{Tareas}\label{tareas}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Usar los datos \texttt{football} para calcular la \textbf{media
+  muestral} del volumen hipocampal y el \textbf{tamaño muestral} de los
+  sujetos de control que no han sido diagnosticados con una conmoción.
+\end{enumerate}
+
+El grupo de control está compuesto por \(n = 25\) sujetos, con un
+volumen hipocampal medio de \(\bar{y} = 7.6\) centímetros cúbicos.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{1}
+\tightlist
+\item
+  Identificar el \textbf{modelo posterior} de \(\mu\) y verificar la
+  respuesta con \texttt{summarize\_normal\_normal()}. \#\# Paso 2:
+  Modelo posterior
+\end{enumerate}
+
+La distribución posterior de \(\mu\) bajo el modelo Normal--Normal es:
+
+\[
+\mu \mid y \sim \text{Normal}\!\Bigg(
+\frac{\tfrac{\theta}{\tau^2} + \tfrac{n \bar{y}}{\sigma^2}}
+     {\tfrac{1}{\tau^2} + \tfrac{n}{\sigma^2}},
+\quad
+\frac{1}{\tfrac{1}{\tau^2} + \tfrac{n}{\sigma^2}}
+\Bigg)
+\]
+
+donde \(\bar{y} = 7.6\), \(n = 25\), \(\sigma = 0.5\), \(\theta = 6.5\)
+y \(\tau = 0.4\).
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{summarize\_normal\_normal}\NormalTok{(}\AttributeTok{mean =} \FloatTok{6.5}\NormalTok{, }\AttributeTok{sd =} \FloatTok{0.4}\NormalTok{, }\AttributeTok{sigma =} \FloatTok{0.5}\NormalTok{,}
+                        \AttributeTok{y\_bar =} \FloatTok{7.6}\NormalTok{, }\AttributeTok{n =} \DecValTok{25}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       model     mean     mode         var         sd
+## 1     prior 6.500000 6.500000 0.160000000 0.40000000
+## 2 posterior 7.535294 7.535294 0.009411765 0.09701425
+\end{verbatim}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{2}
+\tightlist
+\item
+  Graficar la \textbf{pdf previa}, la \textbf{función de verosimilitud}
+  y la \textbf{pdf posterior} de \(\mu\).
+  \pandocbounded{\includegraphics[keepaspectratio]{tarea_5_files/figure-latex/unnamed-chunk-38-1.pdf}}
+\end{enumerate}
+
+\pandocbounded{\includegraphics[keepaspectratio]{tarea_5_files/figure-latex/unnamed-chunk-39-1.pdf}}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{3}
+\tightlist
+\item
+  Describir cómo evoluciona la comprensión de \(\mu\) desde la previa
+  hasta la posterior.
+\end{enumerate}
+
+\subsection{\texorpdfstring{Paso 4: Evolución de la comprensión de
+\(\mu\)}{Paso 4: Evolución de la comprensión de \textbackslash mu}}\label{paso-4-evoluciuxf3n-de-la-comprensiuxf3n-de-mu}
+
+En la \textbf{distribución previa}, nuestro conocimiento sobre \(\mu\)
+estaba centrado en \(\theta = 6.5\) con bastante dispersión
+(\(\tau = 0.4\)).\\
+La curva amarilla refleja esta creencia inicial, amplia e incierta.
+
+La \textbf{verosimilitud} (curva azul) incorpora la información de los
+datos: la media muestral observada en el grupo de control fue
+\(\bar{y} = 7.6\) con \(n = 25\) y \(\sigma = 0.5\).\\
+Esta curva está mucho más concentrada y centrada cerca de 7.6, lo que
+muestra que los datos son bastante informativos.
+
+La \textbf{distribución posterior} (curva verde) combina la previa con
+los datos.\\
+Se observa cómo se desplaza hacia valores cercanos a 7.5 y se concentra
+fuertemente en torno a ese punto
+(\(\text{sd posterior} \approx 0.097\)).
+
+En conclusión, los datos actualizan de forma sustancial nuestra
+comprensión:\\
+pasamos de una creencia amplia y centrada en 6.5 a una estimación más
+precisa, muy cercana a la media observada en la muestra de control.
+
+Ejercicio Normal-Normal (guiado con el libro):
+
+\begin{enumerate}
+\def\labelenumi{(\roman{enumi})}
+\item
+  Calcular la distribución a posteriori para \(μ\).
+\item
+  Demostrar que la distribución a posteriori para μ es normal con media
+  igual a un promedio ponderado de la media a priori \(θ\) y de la media
+  muestral.
+\item
+  Analizar la influencia del tamaño muestral \(n\) sobre la media y la
+  varianza de la distribución a posterior para \(μ\). Conclusión: la
+  distribución a priori normal para \(μ\) es conjugada con el modelo
+  muestral de observaciones independientes de una población normal con
+  media \(μ\) y varianza conocida \(σ^2\)
+\end{enumerate}
+
+\section{Ejercicio Normal--Normal (guiado con el
+libro)}\label{ejercicio-normalnormal-guiado-con-el-libro}
+
+Sea \(\mu\) el volumen medio del hipocampo. Supondremos el
+\textbf{modelo Normal--Normal} con varianza conocida \(\sigma^2\):
+
+\[
+Y_i \mid \mu \stackrel{ind}{\sim} \mathcal{N}(\mu,\sigma^2), \quad i=1,\dots,n,
+\qquad
+\mu \sim \mathcal{N}(\theta,\tau^2).
+\]
+
+Denotemos \(\bar{y}=\frac{1}{n}\sum_{i=1}^n y_i\).
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{\texorpdfstring{(i) Distribución a posteriori de
+\(\mu\)}{(i) Distribución a posteriori de \textbackslash mu}}\label{i-distribuciuxf3n-a-posteriori-de-mu}
+
+La distribución a posteriori es también Normal:
+
+\[
+\mu \mid \mathbf{y} \sim \mathcal{N}\!\Big(\, m_n,\; v_n \Big),
+\] con \[
+v_n \;=\; \frac{1}{\tfrac{1}{\tau^2}+\tfrac{n}{\sigma^2}},
+\qquad
+m_n \;=\; v_n\!\left(\frac{\theta}{\tau^2}+\frac{n\,\bar{y}}{\sigma^2}\right).
+\]
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{\texorpdfstring{(ii) Media posterior como \textbf{promedio
+ponderado} de \(\theta\) y
+\(\bar{y}\)}{(ii) Media posterior como promedio ponderado de \textbackslash theta y \textbackslash bar\{y\}}}\label{ii-media-posterior-como-promedio-ponderado-de-theta-y-bary}
+
+Escribiendo los pesos explícitamente:
+
+\[
+m_n \;=\; 
+\underbrace{\left(\frac{1/\tau^2}{\,1/\tau^2+n/\sigma^2\,}\right)}_{\text{peso previo}}
+\theta
+\;+\;
+\underbrace{\left(\frac{(n/\sigma^2)}{\,1/\tau^2+n/\sigma^2\,}\right)}_{\text{peso de los datos}}
+\bar{y}.
+\]
+
+Equivalente, en términos de \textbf{precisiones} (inversas de
+varianzas):
+
+\[
+m_n \;=\; 
+\frac{\text{precisión previa}\cdot \theta + \text{precisión de la media muestral}\cdot \bar{y}}
+{\text{precisión previa}+\text{precisión de la media muestral}},
+\quad
+\text{donde }
+\text{precisión previa}=1/\tau^2,\;\;
+\text{precisión de la media muestral}=n/\sigma^2.
+\]
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{\texorpdfstring{(iii) Influencia de \(n\) en la media y
+varianza a
+posteriori}{(iii) Influencia de n en la media y varianza a posteriori}}\label{iii-influencia-de-n-en-la-media-y-varianza-a-posteriori}
+
+\begin{itemize}
+\item
+  \textbf{Varianza posterior}: \[
+  v_n=\frac{1}{1/\tau^2+n/\sigma^2}
+  \quad\Rightarrow\quad
+  v_n \downarrow \text{ al crecer } n.
+  \] Más datos \(\Rightarrow\) \textbf{más precisión} (menor
+  incertidumbre).
+\item
+  \textbf{Media posterior}: \[
+  m_n
+  = \Bigg(\frac{1/\tau^2}{1/\tau^2+n/\sigma^2}\Bigg)\theta
+  + \Bigg(\frac{n/\sigma^2}{1/\tau^2+n/\sigma^2}\Bigg)\bar{y}.
+  \] Al aumentar \(n\), el \textbf{peso de los datos}
+  \(\frac{n/\sigma^2}{1/\tau^2+n/\sigma^2}\) crece y \(m_n\) se acerca a
+  \(\bar{y}\).
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Límite \(n\to\infty\): \(m_n \to \bar{y}\),
+    \(v_n \to \sigma^2/n \to 0\).
+  \item
+    Límite \(n\to 0\): \(m_n \to \theta\), \(v_n \to \tau^2\).
+  \end{itemize}
+\end{itemize}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{Conclusión
+(conjugación)}\label{conclusiuxf3n-conjugaciuxf3n}
+
+La \textbf{Normal} es conjugada para la media \(\mu\) bajo un modelo
+Normal con \(\sigma^2\) conocida: una previa
+\(\mathcal{N}(\theta,\tau^2)\) produce una posterior
+\(\mathcal{N}(m_n,v_n)\) con: \[
+v_n=\frac{1}{1/\tau^2+n/\sigma^2}, 
+\qquad
+m_n=\frac{\tfrac{\theta}{\tau^2}+\tfrac{n\bar{y}}{\sigma^2}}{\tfrac{1}{\tau^2}+\tfrac{n}{\sigma^2}}.
+\] La media posterior es un \textbf{promedio ponderado} entre la
+creencia previa \(\theta\) y la evidencia \(\bar{y}\), con pesos
+proporcionales a sus \textbf{precisiones} respectivas.
+
+\end{document}

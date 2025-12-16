@@ -1,0 +1,31 @@
+# R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# Quarto / R Markdown
+*_cache/
+*_files/
+.quarto/
+*.log
+*.aux
+*.out
+*.toc
+
+# Python
+__pycache__/
+.venv/
+.env
+
+# Datos pesados / binarios
+*.csv
+*.xlsx
+*.parquet
+*.pbix
+*.zip
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+.vscode/

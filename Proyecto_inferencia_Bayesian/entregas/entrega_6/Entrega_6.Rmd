@@ -1,0 +1,590 @@
+---
+title: "Tarea 6"
+author: "Juan M Karawcki, Bruno Pintos"
+date: "2025-09-22"
+lang: es
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+```{r include=FALSE, warning=FALSE, message=FALSE}
+library(bayesrules)
+library(tidyverse)
+library(janitor)
+library(knitr)
+library(kableExtra)
+library(rstan)
+library(bayesplot)
+library(gridExtra)
+library(ggplot2)
+```
+
+## Ejercicio 6.7 (Aproximación por grilla Normal-Normal)
+
+Consideremos el modelo Normal–Normal para $\mu$ con
+
+$$
+Y_i \mid \mu \sim N(\mu,\, 1.3^2)
+$$
+
+y
+
+$$
+\mu \sim N(10,\, 1.2^2)
+$$
+
+Supongamos que en $n=4$ observaciones independientes se obtienen los
+datos:
+
+$$
+(Y_1, Y_2, Y_3, Y_4) = (7.1,\, 8.9,\, 8.4,\, 8.6)
+$$
+
+1.  Utiliza la aproximación por grilla con valores de
+
+$$
+\mu \in \{5, 6, 7, \ldots, 15\}
+$$
+
+para aproximar el modelo posterior de $\mu$.
+
+```{r}
+# PASO 1: Definir una grilla de 11 valores de mu
+grid_data <- data.frame(mu_grid = seq(from = 5, to = 15, by = 1))
+y <- c(7.1, 8.9, 8.4, 8.6)
+```
+
+```{r}
+# PASO 2: Evaluar la priori y la verosimilitud para cada valor de mu
+
+grid_data <- grid_data %>% 
+  mutate(
+    prior = dnorm(mu_grid, 10, 1.2), 
+    # Priori: distribución normal(10,1.2**2)
+    likelihood = sapply(mu_grid, function(m) prod(dnorm(y, mean = m, sd = 1.3)))     
+    # Verosimilitud: 
+  )
+```
+
+```{r}
+# PASO 3: Aproximación de la distribución a posteriori (no normalizada y normalizada)
+grid_data <- grid_data %>% 
+  mutate(
+    unnormalized = likelihood * prior,  
+    # Producto prior * verosimilitud
+    posterior = unnormalized / sum(unnormalized)
+    # Normalización para que sume 1
+  )
+```
+
+```{r}
+# Verificar que la suma de las probabilidades que 
+# definen la aproximación computacional de la 
+# distribución a posteriori normalizada es 1
+grid_data %>% 
+  summarize(sum(unnormalized), sum(posterior))
+```
+
+```{r include = FALSE, echo = FALSE,  results = 'hide'}
+# Examinar la tabla resultante con la aproximación por grilla
+round(grid_data, 5)
+# Devuelve una tabla con las columnas: pi_grid, prior, likelihood, unnormalized, posterior
+
+```
+
+```{r echo = FALSE, fig.width=4, fig.height=3, warning=FALSE}
+# Graficar la distribución posterior aproximada con puntos y segmentos verticales
+ggplot(grid_data, aes(x = mu_grid, y = posterior)) +
+  geom_point() +
+  geom_segment(aes(x = mu_grid, xend = mu_grid, y = 0, yend = posterior))
+```
+
+2.  Repite la parte (a) usando una grilla de 201 valores igualmente
+    espaciados entre 5 y 15.
+
+```{r}
+# PASO 1: Definir una grilla de 11 valores de mu
+grid_data <- data.frame(mu_grid = seq(from = 5, to = 15, length.out = 201))
+y <- c(7.1, 8.9, 8.4, 8.6)
+```
+
+```{r}
+# PASO 2: Evaluar la priori y la verosimilitud para cada valor de mu
+
+grid_data <- grid_data %>% 
+  mutate(
+    prior = dnorm(mu_grid, 10, 1.2), 
+    # Priori: distribución normal(10,1.2**2)
+    likelihood = sapply(mu_grid, function(m) prod(dnorm(y, mean = m, sd = 1.3)))     
+    # Verosimilitud: 
+  )
+```
+
+```{r}
+# PASO 3: Aproximación de la distribución a posteriori (no normalizada y normalizada)
+grid_data <- grid_data %>% 
+  mutate(
+    unnormalized = likelihood * prior,  
+    # Producto prior * verosimilitud
+    posterior = unnormalized / sum(unnormalized)
+    # Normalización para que sume 1
+  )
+```
+
+```{r}
+# Verificar que la suma de las probabilidades que 
+# definen la aproximación computacional de la 
+# distribución a posteriori normalizada es 1
+grid_data %>% 
+  summarize(sum(unnormalized), sum(posterior))
+```
+
+```{r}
+# Examinar la tabla resultante con la aproximación por grilla
+round(grid_data, 5)
+# Devuelve una tabla con las columnas: pi_grid, prior, likelihood, unnormalized, posterior
+
+```
+
+```{r echo = FALSE, fig.width=4, fig.height=3, warning=FALSE}
+# Graficar la distribución posterior aproximada con puntos y segmentos verticales
+ggplot(grid_data, aes(x = mu_grid, y = posterior)) +
+  geom_point() +
+  geom_segment(aes(x = mu_grid, xend = mu_grid, y = 0, yend = posterior))
+```
+
+## Ejercicio 6.15 (MCMC con RStan: Gamma–Poisson)
+
+Consideremos el modelo Gamma–Poisson para $\lambda$ con
+
+$$
+Y_i \mid \lambda \sim \mathrm{Pois}(\lambda)
+\qquad\text{y}\qquad
+\lambda \sim \mathrm{Gamma}(20,\,5),
+$$
+
+donde usamos la parametrización **Gamma(shape, rate)**.
+Observamos $n=3$ datos independientes 
+
+$$
+(Y_1, Y_2, Y_3)=(0,\,1,\,0).
+$$
+
+### Objetivo
+
+-   Simular el modelo a posteriori de $\lambda$ con **RStan** usando **4
+    cadenas** y **10 000 iteraciones por cadena**.
+-   Producir *trace plots* y densidades para las cuatro cadenas.
+-   A partir de las densidades, indicar el valor de $\lambda$ más
+    plausible a posteriori.
+-   Especificar el modelo a posteriori de $\lambda$ por conjugación y
+    comparar con la aproximación MCMC.
+
+```{r}
+# Técnica de aproximación (MCMC) de la posteriori
+# Produce cadenas dependientes de lambda a partir del modelo Gamma–Poisson.
+
+# Ejemplo Gamma–Poisson
+#
+# PASO 1: Definición de la estructura del modelo bayesiano
+gp_model <- "
+  data {
+    int<lower=0> N;            // número de observaciones
+    int<lower=0> y[N];         // datos Poisson
+    real<lower=0> alpha;       // shape de la Gamma prior
+    real<lower=0> beta;        // rate  de la Gamma prior
+  }
+  parameters {
+    real<lower=0> lambda;      // parámetro Poisson
+  }
+  model {
+    lambda ~ gamma(alpha, beta);  // prior Gamma(shape, rate)
+    y ~ poisson(lambda);          // verosimilitud
+  }
+"
+```
+
+```{r}
+# Datos y prior
+y <- c(0L, 1L, 0L)
+N <- length(y)
+alpha <- 20
+beta  <- 5
+```
+
+```{r results = 'hide', warning=FALSE}
+# PASO 2: Simulación de la distribución a posteriori con rstan::stan()
+gp_sim <- stan(
+  model_code = gp_model,
+  data  = list(N = N, y = y, alpha = alpha, beta = beta),
+  chains = 4, iter = 10000, warmup = 1000, seed = 84735
+)
+
+```
+
+```{r}
+# Visualización de los primeros cuatro valores de las realizaciones de cada cadena
+as.array(gp_sim, pars = "lambda") %>% head(4)
+
+# Extraer los primeros 20 elementos de chain:1 y chain:3
+samples_array <- as.array(gp_sim, pars = "lambda")
+chain_1 <- samples_array[1:20, 1, 1]
+chain_3 <- samples_array[1:20, 3, 1]
+
+```
+
+```{r include = FALSE}
+# Gráfico para chain:1
+plot1 <- ggplot(data.frame(x = 1:20, y = chain_1), aes(x = x, y = y)) +
+  geom_line(color = "blue") +
+  geom_point(color = "blue") +
+  labs(title = "Primeros 20 elementos de chain:1",
+       x = "iteración", y = " valor de lambda") +
+  theme_minimal() +
+  theme(panel.grid.major = element_line(color = "gray", linetype = "dashed"))
+plot1
+```
+
+```{r include = FALSE}
+# Gráfico para chain:3
+plot2 <- ggplot(data.frame(x = 1:20, y = chain_3), aes(x = x, y = y)) +
+  geom_line(color = "red") +
+  geom_point(color = "red") +
+  labs(title = "Primeros 20 elementos de chain:3",
+       x = "iteración", y = " valor de lambda") +
+  theme_minimal() +
+  theme(panel.grid.major = element_line(color = "gray", linetype = "dashed"))
+plot2
+```
+
+```{r echo = FALSE, fig.width=6, fig.height=3, warning=FALSE}
+# Combinar los gráficos
+ grid.arrange(plot1, plot2, ncol = 2)
+```
+
+```{r echo = FALSE, fig.width=6, fig.height=3}
+# Extraer todas las cadenas para el parámetro "lambda"
+cadenas <- rstan::extract(gp_sim, pars = "lambda")$lambda
+str(cadenas)
+```
+
+```{r echo = FALSE, fig.width=4, fig.height=3}
+# Primeros 20 y 200 valores de la cadena 1 (post-warmup)
+primeros_20  <- cadenas[1:20]
+primeros_200 <- cadenas[1:200]
+
+grafico_20 <- ggplot(data.frame(x = 1:20, y = primeros_20), aes(x = x, y = y)) +
+  geom_line() + geom_point() +
+  labs(title = "Primeros 20 valores de la cadena 1 \nluego de burn-in",
+       x = "iteración", y = expression("valor de " * lambda)) +
+  theme_minimal()
+```
+
+```{r echo = FALSE, fig.width=4, fig.height=3}}
+grafico_200 <- ggplot(data.frame(x = 1:200, y = primeros_200), aes(x = x, y = y)) +
+  geom_line() +
+  labs(title = "Primeros 200 valores de la cadena 1 \nluego de burn-in",
+       x = "iteración", y = expression("valor de " * lambda)) +
+  theme_minimal()
+```
+
+```{r echo = FALSE, fig.width=4, fig.height=3, warning=FALSE}
+print(grafico_20)
+print(grafico_200)
+```
+
+```{r}
+# Trazas de las cuatro cadenas de Markov para lambda
+mcmc_trace(gp_sim, pars = "lambda", size = 0.1)
+```
+
+```{r}
+# Extraer todas las cadenas completas (array)
+samples_array <- as.array(gp_sim, pars = "lambda")
+chain_1 <- samples_array[, 1, 1]
+chain_2 <- samples_array[, 2, 1]
+chain_3 <- samples_array[, 3, 1]
+chain_4 <- samples_array[, 4, 1]
+```
+
+```{r}
+# Función para graficar una cadena
+grafico_cadena <- function(valores, titulo) {
+  ggplot(data.frame(iteracion = 1:length(valores), lambda = valores),
+         aes(x = iteracion, y = lambda)) +
+    geom_line(color = "royalblue") +
+    labs(title = titulo, x = "iteración", y = expression("valor de " * lambda)) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5))
+}
+```
+
+```{r echo = FALSE, fig.width=6, fig.height=4, warning=FALSE}
+plotc1 <- grafico_cadena(chain_1, "Cadena 1")
+plotc2 <- grafico_cadena(chain_2, "Cadena 2")
+plotc3 <- grafico_cadena(chain_3, "Cadena 3")
+plotc4 <- grafico_cadena(chain_4, "Cadena 4")
+grid.arrange(plotc1, plotc2, plotc3, plotc4, ncol = 2, nrow = 2)
+```
+
+```{r echo = FALSE}
+# Histograma de los valores MCMC
+mcmc_hist(gp_sim, pars = "lambda") +
+  yaxis_text(TRUE) + xlab(expression(lambda)) + ylab("frecuencia")
+```
+
+```{r echo = FALSE}
+# Estimación de densidad MCMC y densidad objetivo Gamma(21,8)
+mcmc_dens(gp_sim, pars = "lambda") +
+  yaxis_text(TRUE) +
+  xlab(expression(lambda)) + ylab("densidad") +
+  stat_function(
+    fun = dgamma,
+    args = list(shape = 21, rate = 8),
+    linewidth = 1
+  )
+```
+
+```{r echo = FALSE, fig.width=6, fig.height=4, warning=FALSE}
+# Alternativa: overlay MCMC vs. posterior analítica
+chain_all_lambda <- c(chain_1, chain_2, chain_3, chain_4)
+df <- data.frame(lambda = chain_all_lambda)
+
+ggplot(df, aes(x = lambda)) +
+  geom_density(
+    aes(color = "Aproximación MCMC", linetype = "Aproximación MCMC"),
+    fill = "skyblue", alpha = 0.6, linewidth = 1
+  ) +
+  stat_function(
+    fun = dgamma,
+    args = list(shape = 21, rate = 8),
+    aes(color = "Distribución Gamma(21,8)", linetype = "Distribución Gamma(21,8)"),
+    linewidth = 1
+  ) +
+  xlab(expression(lambda)) + ylab("densidad") +
+  scale_color_manual(values = c("Aproximación MCMC" = "black", "Distribución Gamma(21,8)" = "red"),
+                     labels = c("Aproximación MCMC", "Distribución Gamma(21,8)")) +
+  scale_linetype_manual(values = c("Aproximación MCMC" = "solid", "Distribución Gamma(21,8)" = "dashed"),
+                        labels = c("Aproximación MCMC", "Distribución Gamma(21,8)")) +
+  guides(color = guide_legend(title = NULL),
+         linetype = guide_legend(title = NULL)) +
+  labs(title = "Comparación entre la aproximación MCMC de la posterior de λ\ny la distribución Gamma(21,8)") +
+  theme(legend.position = "inside",
+        legend.justification = c("right", "top"),
+        legend.text = element_text(size = 10))
+```
+
+```{r fig.width=6, fig.height=4, warning=FALSE}
+# Densidades por cadena superpuestas
+mcmc_dens_overlay(gp_sim, pars = "lambda") + ylab("density")
+```
+
+```{r fig.width=4, fig.height=3, warning=FALSE, results = 'hide'}
+# Simulación corta para ilustrar convergencia pobre
+gp_sim_short <- stan(model_code = gp_model,
+                     data = list(N = N, y = y, alpha = alpha, beta = beta),
+                     chains = 4, iter = 100 * 2, seed = 84735)
+
+mcmc_trace(gp_sim_short, pars = "lambda")
+mcmc_dens_overlay(gp_sim_short, pars = "lambda")
+```
+
+```{r}
+# Diagnósticos: tamaño efectivo, R-hat y autocorrelación
+neff_ratio(gp_sim, pars = c("lambda"))
+rhat(gp_sim, pars = "lambda")
+mcmc_acf(gp_sim, pars = "lambda")
+```
+\newpage
+
+## Condiciones iniciales para el capitulo 7
+
+### 7.9.2 Práctica: Simulación Normal-Normal
+
+En el siguiente conjunto de ejercicios, volvemos al modelo bayesiano del
+apartado (7.1):
+
+$$
+Y \mid \mu \sim N(\mu, 0.75^2), \quad \mu \sim N(0, 1^2)
+$$
+
+Supongamos que observamos Y = 6.25 y deseamos construir una simulación
+de Metropolis–Hastings del modelo posterior correspondiente para
+$\lambda$
+
+```{r include = FALSE, echo = FALSE}
+one_mh_iteration <- function(w, current){
+ # STEP 1: Propose the next chain location
+ proposal <- runif(1, min = current - w, max = current + w)
+  
+ # STEP 2: Decide whether or not to go there
+ proposal_plaus <- dnorm(proposal, 0, 1) * dnorm(6.25, proposal, 0.75)
+ current_plaus  <- dnorm(current, 0, 1) * dnorm(6.25, current, 0.75)
+ alpha <- min(1, proposal_plaus / current_plaus)
+ next_stop <- sample(c(proposal, current), 
+                     size = 1, prob = c(alpha, 1-alpha))
+  
+ # Return the results
+ return(data.frame(proposal, alpha, next_stop))
+}
+```
+
+## Ejercicio 7.9 (Una iteración con un modelo de propuesta Uniforme)
+
+La función `one_mh_iteration()` del texto utiliza un modelo de propuesta
+Uniforme:
+
+$$
+\mu' \mid \mu \sim \text{Unif}(\mu - w, \, \mu + w)
+$$ con ancho w=1.
+
+Partiendo de un valor actual de $\mu$ = 3 y utilizando `set.seed(1)`,
+ejecuta el siguiente código y comenta sobre los valores retornados de
+`proposal`, `alpha`, y `next_stop`:
+
+```{r eval=FALSE}
+one_mh_iteration(w = 0.01, current = 3)
+one_mh_iteration(w = 0.5, current = 3)
+one_mh_iteration(w = 1, current = 3)
+one_mh_iteration(w = 3, current = 3)
+```
+
+```{r include = FALSE, echo = FALSE}
+set.seed(1)
+one_mh_iteration(w = 0.01, current = 3)
+one_mh_iteration(w = 0.5, current = 3)
+one_mh_iteration(w = 1, current = 3)
+one_mh_iteration(w = 3, current = 3)
+```
+
+Primero seteamos la semilla en 1 y aplicamos la función
+`one_mh_iteration()` al valor inicial $\mu = 3$ con un ancho de
+$w = 0.01$.
+
+| proposal | alpha | next_stop |
+|----------|-------|-----------|
+| 3.0026   | 1     | 3.0026    |
+
+Con nuestros primeros valores, el algoritmo partió de $\mu = 3$ y, dado
+que el ancho era muy pequeño ($w = 0.01$), la propuesta resultó ser
+apenas distinta: $\mu' = 3.0026$. Al comparar la plausibilidad del valor
+actual y de la propuesta bajo la posterior, ambas resultaron
+prácticamente iguales, de modo que la razón de aceptación alcanzó el
+valor máximo posible, $\alpha = 1$. Eso implica que la propuesta se
+acepta sin ninguna duda, y por lo tanto la cadena se mueve al nuevo
+valor, quedando en $\mu = 3.0026$. Esto tiene lógica porque, al ser la
+propuesta muy cercana al valor actual, tanto la prior como la
+verosimilitud cambian mínimamente, lo que hace que la posterior apenas
+varíe y, por ende, la aceptación sea prácticamente segura.
+
+Ahora aplicamos la función `one_mh_iteration()` al mismo valor inicial
+$\mu = 3$, pero aumentando el ancho a $w = 0.5$.
+
+| proposal | alpha | next_stop |
+|----------|-------|-----------|
+| 2.98     | 0.95  | 2.98      |
+
+A diferencia de la iteración anterior con $w = 0.01$, donde la propuesta
+estaba prácticamente pegada al valor actual, esta vez la propuesta
+$\mu' = 2.98$ se aleja un poco más de $\mu = 3$. Como resultado, la
+plausibilidad bajo la posterior cambia un poco más, y la razón de
+aceptación $\alpha = 0.95$ ya no es 1, aunque sigue siendo alta. Esto
+significa que la propuesta se acepta con una probabilidad cercana a 1,
+lo que refleja que la cadena puede moverse pasos más grandes cuando el
+ancho es mayor. La lógica detrás de esto es permitirnos explorar un
+rango más amplio alrededor del valor actual, la cadena puede realizar
+saltos más amplios, manteniendo el equilibrio entre explorar nuevas
+regiones y quedarse en zonas de alta probabilidad, lo que nos asegura
+una buena exploración del espacio posterior.
+
+A continuación, usamos `one_mh_iteration()` con el mismo valor inicial
+$\mu = 3$, pero aumentando aún más el ancho a $w = 1$.
+
+| proposal | alpha | next_stop |
+|----------|-------|-----------|
+| 2.87     | 0.67  | 3         |
+
+En comparación con las iteraciones anteriores, la propuesta
+$\mu' = 2.87$ se aleja bastante del valor actual. Esto provoca un cambio
+más marcado en la plausibilidad bajo la posterior, y la razón de
+aceptación cae a $\alpha = 0.67$. Como resultado, la propuesta no se
+acepta en esta ocasión, y la cadena permanece en $\mu = 3$. La lógica de
+este comportamiento es consistente con el algoritmo, al ampliar el rango
+de propuestas, se permiten saltos más grandes que exploran más el
+espacio, pero también aumenta la probabilidad de proponer valores menos
+compatibles con los datos y la prior. Así, el algoritmo equilibra
+exploración y aceptación, evitando moverse automáticamente a cualquier
+propuesta que no sea suficientemente plausible.
+
+Finalmente, aplicamos `one_mh_iteration()` con el valor inicial
+$\mu = 3$ y un ancho aún mayor, $w = 3$.
+
+| proposal | alpha | next_stop |
+|----------|-------|-----------|
+| 2.63     | 0.29  | 3         |
+
+En esta iteración, la propuesta $\mu' = 2.63$ se aleja
+significativamente del valor actual, mucho más que en las pruebas
+anteriores. Esto provoca un cambio considerable en la plausibilidad de
+la posterior, y la razón de aceptación disminuye notablemente a
+$\alpha = 0.29$. Como resultado, la propuesta no se acepta, y la cadena
+permanece en $\mu = 3$. La lógica detrás de este comportamiento es
+coherente con el diseño del algoritmo: al generar propuestas que se
+alejan demasiado del valor actual, la probabilidad de aceptar un valor
+menos compatible con los datos y la prior disminuye, lo que evita saltos
+grandes que podrían llevar a regiones de baja probabilidad.
+
+En pocas palabras, con $w$ pequeño la cadena avanza despacio y casi
+siempre acepta, mientras que con $w$ más grande las propuestas se alejan
+más y se aceptan menos. Elegir $w$ es un equilibrio entre pasos seguros
+y explorar más el espacio.
+
+## Ejercicio 7.10 (Un recorrido completo con un modelo de propuesta Uniforme)
+
+Implementa la función de Metropolis-Hastings `mh_tour()` definida en la
+Sección 7.3 para construir recorridos de $\mu$ bajo cada uno de los
+siguientes escenarios. Construye gráficos de trazas e histogramas para
+cada recorrido:
+
+```{r include = FALSE}
+set.seed(1)
+
+mh_tour <- function(N, w){
+  # 1. Start the chain at location 3
+  current <- 3
+
+  # 2. Initialize the simulation
+  mu <- rep(0, N)
+
+  # 3. Simulate N Markov chain stops
+  for(i in 1:N){    
+    # Simulate one iteration
+    sim <- one_mh_iteration(w = w, current = current)
+    
+    # Record next location
+    mu[i] <- sim$next_stop
+    
+    # Reset the current location
+    current <- sim$next_stop
+  }
+  
+  # 4. Return the chain locations
+  return(data.frame(iteration = c(1:N), mu))
+}
+```
+
+1.  50 iteraciones, $w = 50$
+
+```{r echo = FALSE, fig.width=3, fig.height=2, warning=FALSE}
+mh_simulation_1 <- mh_tour(N = 50, w = 50)
+
+ggplot(mh_simulation_1, aes(x = iteration, y = mu)) + 
+  geom_line()
+
+ggplot(mh_simulation_1, aes(x = mu)) + 
+  geom_histogram(aes(y = ..density..), color = "white", bins = 20) 
+```
