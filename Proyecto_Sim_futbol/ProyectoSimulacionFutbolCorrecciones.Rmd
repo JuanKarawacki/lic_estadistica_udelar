@@ -1,0 +1,1965 @@
+---
+title: "SimulacionTemporadaFutbol"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+instalar <- function(paquete) {
+  if (!require(paquete, character.only = TRUE)) {
+    install.packages(paquete)
+  }
+  return(library(paquete, character.only = TRUE))
+}
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+instalar("readr")
+instalar("dplyr")
+instalar("ggplot2")
+instalar("tidyr")
+instalar("knitr")
+instalar("purrr")
+instalar("tibble")
+instalar("viridis")
+instalar("fitdistrplus")
+instalar("patchwork")
+
+
+options(scipen = 999)
+
+```
+
+# Resumen ejecutivo
+
+El objetivo de este trabajo fue simular, mediante métodos estadísticos,
+un conjunto de temporadas de fútbol correspondientes a una liga
+cualesquiera. A través de este enfoque se buscó analizar cómo se
+distribuyen los títulos a lo largo del tiempo y, a partir de ello,
+obtener una aproximación a la “grandeza” relativa de los distintos
+clubes. También se estudia la relación éxito-presupuesto, enfocando el
+rendimiento de la inversión respecto del puntaje obtenido en un torneo.
+Se analiza entonces la racionalidad en torno a una inversión
+futbolística, y como esta varía según la étapa en la que la institución
+se encuentre.
+
+Para construir este modelo se incorporaron diversas variables que
+afectan directamente el rendimiento deportivo de los equipos. Entre
+ellas se incluyeron la probabilidad de anotar un gol, la probabilidad de
+sufrir una lesión y la variación del presupuesto disponible, el cual se
+actualiza en función de los resultados obtenidos en cada temporada. La
+combinación de estos elementos genera un entorno dinámico en el que las
+decisiones y desempeños acumulados influyen en el desempeño futuro. De
+esta forma, la simulación ofrece una herramienta útil para comprender la
+evolución competitiva de los clubes en horizontes temporales
+prolongados.
+
+------------------------------------------------------------------------
+
+# Presentación del problema
+
+El problema que se aborda en el proyecto consiste en modelar, mediante
+técnicas de estadística computacional, la evolución de una liga de
+fútbol profesional a lo largo de un horizonte de varias temporadas. En
+particular, se busca responder preguntas del tipo:
+
+-   ¿Cómo se distribuyen los campeonatos entre clubes cuando se
+    consideran simultáneamente factores futbolísticos (capacidad
+    anotadora, lesiones), económicos (presupuesto) y aleatoriedad
+    inherente al juego?
+-   ¿Hasta qué punto el presupuesto condiciona la probabilidad de
+    convertirse en un “equipo grande” en términos de títulos acumulados?
+-   ¿Qué diferencias surgen entre un escenario donde todos los equipos
+    comienzan cada temporada “desde cero” y otro donde el éxito
+    deportivo se traduce en más recursos económicos en el futuro?
+-   ¿Cuánto cuesta ganar un punto mas en la liga según el presupuesto?
+-   ¿Cómo se distribuye el costo por punto?
+
+Se sabe que en ligas reales como La Liga española, la Uruguaya o la
+Serie A italiana existe una concentración importante de títulos en pocos
+clubes. Sin embargo, separar el efecto del presupuesto, del azar y de
+otros factores es complejo a partir de los datos observados. La
+simulación computacional permite construir un entorno controlado donde
+se fijan reglas explícitas de juego (estructura del torneo, premios
+económicos, procesos de lesión, generación de goles) y se evalúa cómo
+estas reglas se traducen en resultados agregados tras un gran número de
+temporadas simuladas.
+
+El uso de simulación resulta especialmente adecuado en este contexto por
+dos motivos. En primer lugar, el sistema completo (partidos individuales
+con goles discretos, lesiones dependientes del tiempo, actualización de
+presupuestos, etc.) es demasiado complejo como para derivar resultados
+analíticos cerrados sobre la distribución de títulos. En segundo lugar,
+la simulación permite incorporar de forma flexible supuestos
+alternativos —por ejemplo, cambios en la estructura de premios o en la
+forma en que el presupuesto influye sobre la probabilidad de anotar— y
+comparar sus efectos de manera directa. De esta forma, el modelo actúa
+como un “laboratorio virtual” para estudiar la grandeza relativa de los
+clubes en distintos escenarios.
+
+# Metodología
+
+Para generar los distintos resultados, se requiere en un inicio de una
+base de datos a simular. Este fue fundamentalmente el primer desafío a
+resolver: obtener una fuente de datos. La misma se compone de
+escencialmente tres factores aleatorios que interactuan en el transcurso
+de esta liga: probabilidad de gol, probabilidad de lesión y presupuesto
+por equipo. Se observa entonces dos variables a nivel de jugadores y una
+a nivel del equipo.
+
+Al obtener la base de datos inicial, esta funge como nuestro punto de
+partida para la posterior realización de simulaciones a partir de las
+cuales se ergirá nuestro analisis.
+
+A continuación se procede a explicar en detalle los mecanismos
+utilizados para asignar los parámetros de interés a cada observacion de
+jugador-equipo.
+
+## Estructura general de la liga
+
+Se considera una liga ficticia compuesta por 20 equipos, cada uno de
+ellos con un plantel de 22 jugadores. Los dorsales del 1 al 11
+corresponden a titulares y los dorsales del 12 al 22 a sus suplentes
+directos. Las posiciones en el campo se resumen en cuatro categorías:
+arquero (GK), defensor (DF), mediocampista (MF) y delantero (FW). La
+liga se juega bajo un formato todos contra todos a doble rueda: cada
+equipo disputa 38 partidos por temporada (19 como local y 19 como
+visitante).
+
+La asignación de puntos por partido se da según el sistema clásico (3
+puntos por victoria, 1 por empate, 0 por derrota) y la clasificación
+final se obtiene ordenando a los equipos por puntos y, en caso de
+empate, por diferencia de goles. Al finalizar la temporada se otorgan
+premios económicos decrecientes a los diez primeros equipos de la tabla,
+que impactan en el presupuesto disponible para la próxima temporada.
+
+## Módulo de generación de planteles y presupuestos
+
+La instancia base de la liga se construye de forma simulada pero
+respetando ciertas regularidades observadas en ligas reales:
+
+-   Cada equipo recibe un presupuesto inicial medido en millones de
+    dólares. Se consideran dos rangos diferenciados:
+    -   clubes “grandes”, con presupuestos uniformes entre 800 y 1200,
+    -   clubes “pequeños”, con presupuestos uniformes entre 20 y 400.
+-   A nivel de jugadores, se generan 22 futbolistas por equipo,
+    asignándoles posición (GK, DF, MF, FW) según su dorsal y
+    probabilidades individuales de anotar gol coherentes con su rol en
+    el campo.
+-   Se incorporan probabilidades de lesión dependientes de la posición,
+    más bajas para arqueros y más altas para mediocampistas y
+    delanteros.Las probabilidades se asignan de manera
+    arbitraria.Posteriormente, estas probabilidades se ajustan en
+    función del presupuesto del equipo, de modo que los clubes más ricos
+    (que se supone disputan más competiciones) enfrentan una mayor
+    exposición a lesiones.
+
+## Calibración de probabilidades de gol
+
+Un aspecto central de la metodología es que las probabilidades de gol
+por posición se calibran para reproducir el promedio de goles observado
+en la temporada 2024/2025 de La Liga (torneo español), en la que se
+registraron 995 goles, con un promedio de $2.61$ goles por partido. El
+procedimiento sigue dos etapas:
+
+1.  **Obtención de semillas a partir de datos reales.**\
+    A partir de archivos de estadísticas de jugadores de la temporada de
+    referencia, se calcula para cada posición (GK, DF, MF, FW) el
+    promedio de goles por partido. Dichos promedios se utilizan como
+    probabilidades “semilla” por posición, que reflejan la intensidad
+    ofensiva relativa de cada rol. Para los suplentes (dorsales $> 11$)
+    se utiliza la mitad de la probabilidad de su correspondiente
+    titular, capturando su menor impacto esperado en el marcador.
+
+2.  **Ajuste mediante simulación Monte Carlo.**\
+    Sobre esas semillas se aplica un algoritmo de calibración iterativo
+    que escala un factor común multiplicativo hasta que el promedio de
+    goles generado por el modelo converge al objetivo de $2.61$ goles
+    por partido. En cada iteración se simula un número fijo de partidos
+    utilizando el motor de partidos completo (incluyendo efecto
+    presupuestal, suplentes y lesiones) y se calcula el promedio de
+    goles simulados. El factor se actualiza en función de la
+    discrepancia entre el promedio simulado y el objetivo, manteniendo
+    siempre la jerarquía entre posiciones (es decir, si inicialmente
+    $P(\text{FW}) > P(\text{MF})$ y $P(\text{MF}) > P(\text{DF})$, esa
+    relación se preserva).
+
+El resultado de este módulo es un conjunto de probabilidades de gol
+calibradas por posición, que garantizan que el modelo reproduzca un
+nivel de anotaciones similar al observado en la liga real.
+
+## Motor de lesiones
+
+Las lesiones se modelan de manera dinámica y dependiente del tiempo. El
+proceso funciona de la siguiente forma:
+
+-   Cada jugador tiene una probabilidad base de lesionarse en un
+    partido, asignada arbitrariamente, que depende de su posición (menor
+    en GK, mayor en MF/FW).
+-   Esta probabilidad se multiplica por un factor que crece linealmente
+    con el presupuesto del equipo, acotado para que el efecto total
+    quede entre $1$ y $2$. La idea es que los equipos ricos, al
+    participar en más competiciones, están más expuestos a lesiones.
+-   Para cada partido, se actualiza la duración remanente de las
+    lesiones ya existentes (disminuye en 1 partido a partido hasta
+    llegar a 0) y se simulan nuevas lesiones solo para los jugadores que
+    actualmente están sanos. La duración de una nueva lesión se asigna
+    al azar entre 1 y 8 partidos.
+
+La variable booleana que indica si un jugador está lesionado en un
+momento dado se utiliza posteriormente en la selección de titulares y
+suplentes para cada encuentro.
+
+## Motor de partidos
+
+El motor de partidos integra el efecto del presupuesto, las lesiones y
+las probabilidades individuales de gol para generar el resultado de cada
+encuentro. El esquema general es el siguiente:
+
+1.  **Ajuste por presupuesto.**\
+    Dado un enfrentamiento entre dos equipos, se identifica cuál de
+    ellos tiene menor presupuesto y se calcula la razón de presupuestos
+    $\text{pairRatio} = \dfrac{\text{presupuesto\_grande}}{\text{presupuesto\_chico}}$.
+    A partir de este valor se construye un factor de corrección
+    $\text{budgetDif}$ que aumenta las probabilidades de victoria del
+    equipo más débil, aumentando ligeramente sus probabilidades de gol.
+    Este factor se define de manera que siempre haya posibilidad de
+    sorpresa, incluso ante diferencias económicas grandes.
+
+2.  **Selección de jugadores disponibles.**\
+    Para cada equipo se parte de los 11 titulares teóricos. Los
+    jugadores lesionados son descartados y, en su lugar, se
+    activa a su suplente directo (dorsal + 11). 
+
+3.  **Generación de goles.**\
+    Una vez definidos los jugadores que efectivamente disputan el
+    encuentro, se utilizan sus probabilidades ajustadas de gol para
+    simular conteos de goles individuales. El modelo se basa en
+    distribuciones de conteo (geométrica) que
+    permiten capturar la sobredispersión observada en goles reales,
+    donde la varianza excede a la media y existen partidos con
+    actuaciones excepcionalmente destacadas.
+
+4.  **Cálculo del marcador y registro de “batacazos”.**\
+    Los goles individuales se agregan a nivel de equipo para obtener el
+    marcador final. Cuando el equipo presupuestalmente más débil gana,
+    el modelo clasifica la magnitud del “milagro” en función de
+    $\text{pairRatio}$ y emite una marca cualitativa (una
+    escala de emojis).
+    
+El motor de partidos devuelve los goles por jugador y por equipo, así
+como la información necesaria para actualizar los puntos y las
+estadísticas acumuladas de la liga.
+
+## Motor de liga y actualización económica
+
+El motor de liga se construye sobre el calendario generado por el
+algoritmo round–robin. Para cada jornada:
+
+-   Se recorren todos los partidos de la fecha y se llama al motor de
+    partidos, actualizando goles, puntos y partidos jugados.
+-   Opcionalmente, se puede visualizar la tabla intermedia tras cada
+    jornada, permitiendo un seguimiento paso a paso de la evolución de
+    la competición.
+
+Al finalizar la temporada:
+
+-   Se ordena la tabla final de posiciones por puntos y goles.
+-   Se asignan premios económicos decrecientes a los 10 primeros equipos
+    (por ejemplo, $50$, $30$, $20$, $15$, $10$, $8$, $6$, $5$, $4$ y $2$
+    millones de dólares).
+-   Estos premios se suman al presupuesto inicial de cada club, de modo
+    que el rendimiento deportivo tiene un efecto directo sobre los
+    recursos disponibles para la temporada siguiente.
+
+Este mecanismo permite estudiar tanto ligas estacionarias, donde los
+presupuestos se reinician cada año, como ligas acumulativas en las que
+el éxito pasado refuerza la ventaja futura.
+
+## Simulación de múltiples temporadas
+
+Para analizar la distribución de títulos en el largo plazo se implementa
+un módulo de simulación de múltiples ligas que repite el siguiente
+esquema $n$ veces:
+
+1.  **Inicialización del estado de la liga.**\
+    Existen dos modos de trabajo:
+
+    -   **Monte Carlo puro** (`mantener_evolucion = FALSE`): antes de
+        cada temporada se restaura el estado inicial de equipos y
+        jugadores a partir del momento 0 previamente capturado. Todos
+        los campeonatos se simulan bajo las mismas condiciones
+        iniciales, lo que permite estimar la probabilidad intrínseca de
+        que cada equipo sea campeón.
+    -   **Modo Dinastía** (`mantener_evolucion = TRUE`): se mantienen
+        los presupuestos acumulados al final de la temporada anterior,
+        pero se reinician puntos, goles, partidos jugados y lesiones. En
+        este escenario, los equipos exitosos se vuelven progresivamente
+        más ricos, generando una dinámica de acumulación de la riqueza.
+
+2.  **Simulación de la temporada.**\
+    Se llama al motor de liga para simular las 38 jornadas de la
+    competencia en modo silencioso (sin impresión intermedia).
+
+3.  **Registro del campeón.**\
+    Una vez finalizada la temporada, se identifica al campeón y se
+    registra su nombre en un vector de historial de campeones.
+
+Al concluir las $n$ simulaciones, se construye una tabla de frecuencias
+de títulos por equipo y se vincula esta información con los presupuestos
+iniciales, lo que permite explorar visualmente la relación entre riqueza
+y éxito deportivo. Gráficos de barras coloreados por presupuesto
+facilitan la interpretación de cuántas ligas gana cada club en función
+de sus recursos económicos.
+
+# Datos utilizados
+
+## Datos reales de calibración
+
+Para que el modelo reproduzca un entorno futbolístico plausible, se
+utilizan datos reales de la temporada 2024/2025 de La Liga (primera
+división del fútbol español). Concretamente, se emplean archivos de
+estadísticas de jugadores (carpeta `PlayerStats`) que contienen, entre
+otras variables:
+
+-   posición del jugador (`Pos`),
+-   partidos disputados (`MP`),
+-   goles anotados (`Gls`).
+
+A partir de estos datos se construye, para cada equipo real, una tabla
+de promedio de goles por partido por posición:
+
+-   se calcula $goles_{Esp}= Gls/MP$ (con valor 0 si
+    $MP = 0$),
+-   se agrupa por posición y se obtiene la media de $goles_{Esp}$, resultando 
+    en un parámetro $\lambda$, es decir la probabilidad
+    de convertir gol, por posición.
+
+Luego se construye una tabla global que resume los valores de $\lambda$
+para todas las posiciones y equipos, y se los ordena según presupuesto
+real. Esta información se utiliza para:
+
+-   derivar las probabilidades semilla de gol por posición, que
+    alimentan el módulo de calibración,
+-   establecer una correspondencia entre equipos reales y equipos
+    simulados, de modo que los clubes ficticios con mayor presupuesto
+    reciban parámetros consistentes con los equipos grandes de La Liga.
+
+## Datos simulados de equipos y jugadores: Estructura inicial
+
+La estructura principal del modelo se basa en datos simulados. Se define
+previamente la cantidad de clubes grandes y pequeños que compondrán la
+liga, ya que este dato será definitorio en el comportamiento del resto
+de variables: presupuesto, probabilidad de gol y probabilidad de lesión.
+
+-   **Equipos:**\
+    Se genera un data frame con 20 equipos ficticios a quienes se
+    asignan:
+    -   un presupuesto inicial (en millones de dólares) según el esquema
+        de clubes grandes y pequeños
+    -   variables para registrar: puntos de liga, goles a favor,
+        partidos jugados y cantidad de títulos obtenidos. Todos arrancan
+        en 0.
+
+```{r include=FALSE}
+# Creamos los datos iniciales
+# Comenzamos generando equipos y sus presupuestos
+
+set.seed(152)
+numTeams <- 20
+ligaTeams <- data.frame(teamName = c(
+  "Real Madrid",
+  "Barcelona",
+  "ChatGPT",                
+  "Ravioles",             
+  "Nacional",
+  "Alianza Lima",
+  "Boca",
+  "Peñarol",
+  "Villa Unión",          
+  "Getafe",
+  "Elche",
+  "Arsenal",
+  "Los Raperos Club",     
+  "Los Gepe",            
+  "Gemelos FC",             
+  "Una Matriz",           
+  "Ardo FC",
+  "Shade FC",             
+  "Dioses FC",    
+  "Atlético Satán"    
+))
+
+ligaTeams$teamPoints <- 0
+ligaTeams$teamGoals <- 0
+ligaTeams$MP <- 0
+ligaTeams$leagueTitles <- 0  
+
+```
+
+```{r include=FALSE}
+numBigTeams <- 0
+
+# Generamos presupuestos (medidos en millones de dolares) de los equipos 
+# grandes y para el resto de equipos
+bigBudgets <- runif(n = numBigTeams, min = 800, max = 1200)
+
+# Para la simulacion final que decidimos, partimos finalmente de que todos los
+# equipos comienzan con presupuestos bajos, para simular equipos de mayor 
+# presupuesto y ver los resultados, simplemente aumentar el numero de 
+# numBigTeams
+smallBudgets <- runif(n = numTeams - numBigTeams, min = 20, max = 400)
+
+ligaBudgets <- sample(c(bigBudgets, smallBudgets))
+ligaTeams$teamBudget <- ligaBudgets
+```
+
+-   **Jugadores:**\
+    Se construye un data frame con 22 jugadores por equipo, incluyendo:
+    -   el equipo al que pertenecen
+    -   el número de camiseta, que determina su condición de titular o
+        suplente (dorsal mayor a 11)
+    -   la posición: golero, defensa, mediocampo o delantero (igualmente
+        derivada del dorsal)
+    -   goles acumulados en el torneo, inicializado en 0
+    -   probabilidad de gol inicialmente asignadas, varían de acuerdo a
+        la posición y titularidad (los suplentes tienen la mitad de gol
+        de los titulares)
+    -   probabilida de lesión asignada arbitrariamente, según
+        titularidad y posición (los suplentes no se pueden lesionar)
+    -   indicador de lesión (binario) y duración de la lesión, ambos
+        inicializados en 0
+    -   partidos jugados por el equipo, igualmente arranca en 0
+
+```{r include=FALSE}
+# Generamos jugadores para cada equipo
+ligaPlayers <- data.frame(
+  playerTeam = rep(ligaTeams$teamName, each = 22),
+  playerNum  = rep(1:22, times = nrow(ligaTeams))
+)
+
+# Generamos las posiciones para cada jugador segun su dorsal
+pos_map <- c(
+  "GK",  # 1
+  "DF", "DF", "DF", "DF",  # 2-5
+  "MF", "MF", "MF",        # 6-8
+  "FW", "FW", "FW",        # 9-11
+  "GK",                    # 12
+  "DF", "DF", "DF", "DF",  # 13-16
+  "MF", "MF", "MF",        # 16-18
+  "FW", "FW", "FW"         # 20-22
+)
+
+ligaPlayers$playerPos <- pos_map[ligaPlayers$playerNum]
+
+# inicializamos columnas de caracteristicas del jugador
+ligaPlayers$playerGoals <- 0
+ligaPlayers$playerGoalProb <- 0
+ligaPlayers$injured <- FALSE
+ligaPlayers$injuryProb <- 0
+ligaPlayers$injuryDuration <- 0
+ligaPlayers$MP <- 0 #Partidos jugados
+```
+
+## Implementación utilizada
+
+Se procede a describir brevemente la estructura funcional del código
+utilizado para generar el simulador. Se decide añadir esto en función de
+la complejidad del sistema generado.
+
+Posterior a la inicialización previamente especificada se procede a
+ajustar los últimos factores de los datos pre-simulación: las
+probabilidades de gol y lesión.
+
+-   La probabilidad de gol se procede a calibrarla de tal forma que se
+    aproxime a los valores de promedio de gol por partido de la liga de
+    referencia. Para eso se generaron dos caminos distintos: - la
+    función 'calibrar_montecarlo_exacto' que utiliza un método iterativo
+    de tipo montecarlo para ajustar los valores.
+
+```{r include= FALSE}
+# 1. Definir semillas (Relación de fuerzas)
+mis_semillas <- c("GK" = 0.001, "DF" = 0.1, "MF" = 0.15, "FW" = 0.40)
+```
+
+```{r include=FALSE}
+# 1. Convertimos el vector de semillas a Data Frame
+df_semillas <- data.frame(
+  Posicion = names(mis_semillas),
+  Probabilidad = as.numeric(mis_semillas)
+)
+
+# 2. Imprimimos la tabla formateada
+kable(df_semillas, 
+      digits = 5, 
+      col.names = c("Posicion", "Probabilidad Semilla"), 
+      align = "c", 
+      caption = "Creencias Iniciales (Priors) por Posicion",
+      booktabs = TRUE) 
+```
+
+```{r include=FALSE}
+calibrar_montecarlo_exacto <- function(probs_semilla, 
+                                       target_mean, 
+                                       teams_df,
+                                       players_df,
+                                       n_sims_por_iter = 100,
+                                       max_iter = 20, 
+                                       tol = 0.0001,
+                                       plot_evolution = TRUE) {
+  
+  factor <- 1
+  history <- data.frame()
+  
+  for (i in 1:max_iter) {
+    
+    # --- 1. Preparar Entorno ---
+    test_players <- players_df
+    probs_actuales <- probs_semilla * factor
+    if (any(probs_actuales >= 0.99)) probs_actuales <- pmin(probs_actuales, 0.99)
+    
+    test_players$playerGoalProb <- probs_actuales[as.character(test_players$playerPos)]
+    test_players$playerGoalProb <- test_players$playerGoalProb * (1 - (test_players$playerNum > 11)/2)
+    test_players$playerGoalProbBase <- test_players$playerGoalProb
+    
+    total_goles <- 0
+    
+    # --- 2. Simulación Masiva ---
+    for (s in 1:n_sims_por_iter) {
+      idxs <- sample(1:nrow(teams_df), 2)
+      t1 <- teams_df[idxs[1], ]
+      t2 <- teams_df[idxs[2], ]
+      
+      # Presupuesto
+      if (t1$teamBudget < t2$teamBudget) {
+        weaker <- t1$teamName; pairRatio <- t2$teamBudget / t1$teamBudget
+      } else {
+        weaker <- t2$teamName; pairRatio <- t1$teamBudget / t2$teamBudget
+      }
+      budgetDif <- max((1 / pairRatio) * 1.2, 0.3)
+      
+      # Filtrar jugadores
+      match_teams <- c(t1$teamName, t2$teamName)
+      idx_match <- which(test_players$playerTeam %in% match_teams)
+      p_match <- test_players[idx_match, ]
+      
+      # Lesiones
+      starters <- p_match[p_match$playerNum <= 11, ]
+      new_injuries <- rbinom(nrow(starters), 1, starters$injuryProb) == 1
+      injured_nums <- starters$playerNum[new_injuries]
+      injured_teams <- starters$playerTeam[new_injuries]
+      
+      playing_mask <- (p_match$playerNum <= 11) & !(p_match$playerNum %in% injured_nums & p_match$playerTeam %in% injured_teams)
+      
+      if (length(injured_nums) > 0) {
+        for (k in 1:length(injured_nums)) {
+          sub_num <- injured_nums[k] + 11 
+          tm <- injured_teams[k]
+          sub_idx_local <- which(p_match$playerTeam == tm & p_match$playerNum == sub_num)
+          if (length(sub_idx_local) > 0) playing_mask[sub_idx_local] <- TRUE
+        }
+      }
+      
+      players_on_pitch <- p_match[playing_mask, ]
+      
+      # Penalización Presupuesto
+      players_on_pitch$playerGoalProb <- players_on_pitch$playerGoalProbBase
+      is_weak <- players_on_pitch$playerTeam == weaker
+      players_on_pitch$playerGoalProb[is_weak] <- players_on_pitch$playerGoalProb[is_weak] * budgetDif
+      
+      # Goles
+      goles_simulados <- rgeom(nrow(players_on_pitch), 1 - players_on_pitch$playerGoalProb)
+      total_goles <- total_goles + sum(goles_simulados)
+    }
+    
+    # --- 3. Evaluación ---
+    mean_sim <- total_goles / n_sims_por_iter
+    diff <- mean_sim - target_mean
+    
+    row_data <- as.list(probs_actuales)
+    row_data$iter <- i
+    row_data$mean_goals <- mean_sim
+    history <- rbind(history, as.data.frame(row_data))
+    
+    if (abs(diff) < tol) break
+    
+    # Ajuste
+    ratio <- target_mean / (mean_sim + 0.001)
+    factor <- factor * (1 + (ratio - 1) * 0.7)
+  }
+  
+  if (plot_evolution) {
+    hist_long <- history %>%
+      dplyr::select(-mean_goals) %>%
+      mutate(iter = 1:n()) %>%
+      pivot_longer(cols = names(probs_semilla), names_to = "Posicion", values_to = "Probabilidad")
+    
+    print(ggplot(hist_long, aes(x = iter, y = Probabilidad, color = Posicion)) +
+            geom_line(linewidth = 1) + geom_point() + theme_minimal() +
+            labs(title = "Calibracion Monte Carlo", subtitle = paste("Target:", target_mean)))
+  }
+  
+  return(probs_actuales)
+}
+```
+
+```{r include=FALSE}
+# Ejecutamos la calibración
+probs_finales <- calibrar_montecarlo_exacto(
+  probs_semilla = mis_semillas,
+  target_mean = 2.61, 
+  teams_df = ligaTeams,
+  players_df = ligaPlayers,
+  n_sims_por_iter = 300, 
+  plot_evolution = TRUE
+)
+
+# APLICAR RESULTADOS A LA LIGA REAL
+ligaPlayers$playerGoalProb <- probs_finales[as.character(ligaPlayers$playerPos)]
+ligaPlayers$playerGoalProb <- ligaPlayers$playerGoalProb * (1 - (ligaPlayers$playerNum > 11)/2)
+ligaPlayers$playerGoalProbBase <- ligaPlayers$playerGoalProb
+```
+
+```{r include=FALSE}
+# Visualizamos la tabla final
+df_probs <- data.frame(
+  Posicion = names(probs_finales),
+  Probabilidad = as.numeric(probs_finales)
+)
+
+kable(df_probs, 
+      digits = 5, 
+      col.names = c("Posicion", "Probabilidad Base"), 
+      align = "c", 
+      caption = "Probabilidades de Gol Calibradas (Titular en Equipo Fuerte)",
+      booktabs = TRUE)
+```
+
+-   Las funciones que componen el cuerpo de la sección "Metodo de
+    Bisección" descrito más abajo. Ambos métodos arriban a las mismas
+    conclusiones, con valores similares, por lo que son sustitutivos uno
+    de otro.
+
+-   La probabilidad de lesión se modifica para considerar probabilidades
+    mayores de lesión para aquellos equipos con mayor presupuesto
+    considerados grandes. Esto dado que dichos equipos en la realidad
+    suelen jugar mayor cantidad de competiciones externas por lo que sus
+    planteles se ven más expuestos al riesgo de lesionarse. El factor
+    que se busca generar está acotado entre 1 y 2 de tal manera de
+    aumentar las probabilidades pero no de manera grosera.
+
+    ```{r include=FALSE}
+    # --- Ajuste por presupuesto del equipo ---
+
+    # Unimos el presupuesto de cada equipo a los jugadores
+    ligaPlayers <- merge(
+      ligaPlayers,
+      ligaTeams[, c("teamName", "teamBudget")],
+      by.x = "playerTeam",
+      by.y = "teamName",
+      all.x = TRUE
+    )
+
+    # Escalamos los presupuestos para que el factor quede entre 1 (mínimo) y 2 (máximo)
+    maxBudget <- max(ligaPlayers$teamBudget, na.rm = TRUE)
+    minBudget <- min(ligaPlayers$teamBudget, na.rm = TRUE)
+    ligaPlayers$budgetFactor <- 1 + (ligaPlayers$teamBudget - minBudget) / (maxBudget - minBudget)
+
+    # Limitamos el efecto a un máximo de 2×
+    ligaPlayers$budgetFactor <- pmin(ligaPlayers$budgetFactor, 2)
+
+    # Aplicamos el efecto del presupuesto: a más presupuesto, más probabilidad de lesión
+    ligaPlayers$injuryProb <- ligaPlayers$injuryProb * ligaPlayers$budgetFactor
+
+    # Eliminamos la columna auxiliar que ya no necesitamos
+    ligaPlayers$budgetFactor <- NULL
+    ligaPlayers$teamBudget <- NULL
+
+    ```
+
+Pasando a la simulación del torneo, tenemos que considerar la
+conformación del mismo. Tenemos 20 equipos por lo que se van a jugar 19
+partidos de ida y 19 partidos de vuelta cada uno. En total se dan 38
+enfrentamientos.
+
+En un partido ocurren cuatro eventos que tenemos que funcionalizar:
+
+-   Generación de un ratio de presupuesto que computa las interacciones
+    entre los equipos vía presupuesto, de tal forma de favorecer al
+    equipo más rico (que en nuestro modelo se correlaciona con la
+    grandeza). Se toma el inverso de ese ratio entre presupuestos, que
+    resulta en un número menor a 1 que multiplicara las proababilidades
+    de gol del equipo más débil. Contenido en la función
+    *'budget_math()'.*
+
+    ```{r include=FALSE}
+    budget_math <- function(team1, team2) {
+      if (team1$teamBudget < team2$teamBudget) {
+        weakerTeam <- team1$teamName
+        pairRatio  <- team2$teamBudget / team1$teamBudget
+      } else {
+        weakerTeam <- team2$teamName
+        pairRatio  <- team1$teamBudget / team2$teamBudget
+      }
+      
+      # factor para buffear al débil
+      budgetDif <- max((1 / pairRatio) * 1.2, 0.3)
+      
+      list(
+        budgetDif  = budgetDif,
+        weakerTeam = weakerTeam,
+        pairRatio  = pairRatio
+      )
+    }
+
+    ```
+
+-   Se inicia simulando lesiones para saber que jugadores estarán sanos
+    a la hora de arrancar el partido. Dicha lesión se simula con una
+    bernuolli que toma como proababilidad de éxito la anteriormente
+    asignada. Si se dan lesiones entran entre los titulares, los
+    suplentes necesarios (que recordemos tienen la mitad de probabilidad
+    de gol). Al jugador lesionado se le simula un valor aleatorio entre
+    uno a ocho partidos que permanecerá lesionado y que irá disminuyendo
+    partido a partido hasta llegar a 0 (recuperación). Contenido en la
+    función *'injury_sim()'.*
+
+    ```{r include=FALSE}
+    injury_sim <- function(players) {
+      # Reducimos duración de lesiones existentes
+      players$injuryDuration[players$injuryDuration > 0] <- 
+        pmax(players$injuryDuration[players$injuryDuration > 0] - 1, 0)
+      
+      # Solo simulamos nuevas lesiones para jugadores que NO estén lesionados
+      notInjured <- players$injuryDuration == 0
+      newInjuries <- rbinom(sum(notInjured), 1, players$injuryProb[notInjured]) == 1
+      
+      # Asignamos duración de lesión aleatoria entre 1 y 8 partidos
+      players$injuryDuration[notInjured][newInjuries] <- sample(1:8, sum(newInjuries), replace = TRUE)
+      
+      # Actualizamos columna booleana `injured` para el partido actual
+      players$injured <- players$injuryDuration > 0
+      
+      # Aviso por consola
+      if (sum(newInjuries) > 0) {
+        injuredPlayers <- players[notInjured, ][newInjuries, ]
+        for (i in seq_len(nrow(injuredPlayers))) {
+          cat("⚠️ Lesion: Player", injuredPlayers$playerNum[i],
+              "del equipo", injuredPlayers$playerTeam[i],
+              "-> durara", injuredPlayers$injuryDuration[i], "partidos\n")
+        }
+      }
+      
+      return(players)
+    }
+    ```
+
+-   Durante el partido ocurren eventos de gol que se simulan para todos
+    los jugadores titulares de cada equipo. La simulación se hace con
+    una geométrica. La suma de todos los goles de los jugadores de un
+    equipo se comparan con la del contrario, esto determina el
+    resultado. Contenido en la función *'sim_goals()'.*
+
+    ```{r include=FALSE}
+    sim_goals <- function(matchPlayers, team1, team2, weakerTeam, pairRatio) {
+      # inicializamos goles
+      matchPlayers$playerGoals <- 0
+      
+      # simulamos goles con geométrica
+      matchPlayers$playerGoals <- rgeom(nrow(matchPlayers), 1 - matchPlayers$playerGoalProb)
+      
+      # goles por equipo
+      teamGoals <- aggregate(playerGoals ~ playerTeam, data = matchPlayers, sum)
+      names(teamGoals) <- c("team", "goals")
+      
+      team1Goals <- teamGoals$goals[teamGoals$team == team1$teamName]
+      team2Goals <- teamGoals$goals[teamGoals$team == team2$teamName]
+      
+      team1Goals <- ifelse(length(team1Goals) == 0, 0, team1Goals)
+      team2Goals <- ifelse(length(team2Goals) == 0, 0, team2Goals)
+      
+      ## ---------------- Upset + emoji por tamaño del milagro ---------------- ##
+      upsetEmoji <- ""
+      
+      if (team1Goals != team2Goals) {
+        winner <- if (team1Goals > team2Goals) team1$teamName else team2$teamName
+        
+        if (winner == weakerTeam) {
+          ratio <- pairRatio   # ratio = presupuesto_grande / presupuesto_chico
+          
+          # Umbrales pensados para que casen con los ejemplos que diste:
+          #   < 1.3        → ✅  (upset chico, presupuestos casi iguales)
+          #   1.3 – 2.5    → 👏  (lindo batacazo)
+          #   2.5 – 5      → 🔥  (muy buen milagro)
+          #   5 – 10       → 💥  (tremendo)
+          #   ≥ 10         → 🤯  (locura absoluta)
+          
+          if (ratio < 1.3) {
+            upsetEmoji <- "✅"
+          } else if (ratio < 2.5) {
+            upsetEmoji <- "👏"
+          } else if (ratio < 5) {
+            upsetEmoji <- "🔥"
+          } else if (ratio < 10) {
+            upsetEmoji <- "💥"
+          } else {
+            upsetEmoji <- "🤯"
+          }
+        }
+      }
+      
+      # imprimir resultado con posible emoji
+      cat("\nResultado del partido:\n")
+      cat(paste0(
+        team1$teamName, " ", team1Goals, " - ", team2Goals, " ", team2$teamName,
+        if (upsetEmoji != "") paste0("  ", upsetEmoji) else "",
+        "\n"
+      ))
+      cat("\n-------------------------\n")
+      
+      # devolver resultados
+      return(list(
+        matchPlayersGoals = matchPlayers$playerGoals,
+        team1Goals        = team1Goals,
+        team2Goals        = team2Goals
+      ))
+    }
+
+    ```
+
+-   Se actualiza la tabla de la liga para considerar el resultado del
+    partido recién acontecido. Contenido en la función
+    *'update_results()'.*
+
+    ```{r include=FALSE}
+    update_results <- function(copyPlayers, copyLiga, matchPlayers, results, team1, team2) {
+      # Actualizamos los goles de los jugadores del partido
+      copyPlayers$playerGoals[matchPlayers] <- copyPlayers$playerGoals[matchPlayers] +   
+                                               results$matchPlayersGoals
+      
+      # Actualizamos los goles de los equipos
+      copyLiga$teamGoals[copyLiga$teamName == team1$teamName] <- 
+        copyLiga$teamGoals[copyLiga$teamName == team1$teamName] + results$team1Goals
+      
+      copyLiga$teamGoals[copyLiga$teamName == team2$teamName] <- 
+        copyLiga$teamGoals[copyLiga$teamName == team2$teamName] + results$team2Goals
+      
+      # Actualizamos los puntos según el resultado
+      if (results$team1Goals > results$team2Goals) {
+        copyLiga$teamPoints[copyLiga$teamName == team1$teamName] <- 
+          copyLiga$teamPoints[copyLiga$teamName == team1$teamName] + 3
+      } else if (results$team2Goals > results$team1Goals) {
+        copyLiga$teamPoints[copyLiga$teamName == team2$teamName] <- 
+          copyLiga$teamPoints[copyLiga$teamName == team2$teamName] + 3
+      } else {
+        copyLiga$teamPoints[copyLiga$teamName == team1$teamName] <- 
+          copyLiga$teamPoints[copyLiga$teamName == team1$teamName] + 1
+        copyLiga$teamPoints[copyLiga$teamName == team2$teamName] <- 
+          copyLiga$teamPoints[copyLiga$teamName == team2$teamName] + 1
+      }
+      
+      # Actualizamos la cantidad de partidos 
+      copyLiga$MP[copyLiga$teamName == team1$teamName] <- 
+        copyLiga$MP[copyLiga$teamName == team1$teamName] + 1
+      
+      copyLiga$MP[copyLiga$teamName == team2$teamName] <- 
+        copyLiga$MP[copyLiga$teamName == team2$teamName] + 1
+
+      # Devolvemos ambos dataframes actualizados
+      return(list(players = copyPlayers, liga = copyLiga))
+    }
+
+    ```
+
+Todas estas funcionalidades estan incorporadas en la función
+'*sim_match()*'.
+
+```{r include=FALSE}
+sim_match <- function(team1, team2) {
+  matchTeams <- c(team1$teamName, team2$teamName)
+  
+  ### Presupuesto ----
+  bmath <- budget_math(team1, team2)
+  budgetDif  <- bmath$budgetDif
+  weakerTeam <- bmath$weakerTeam
+  pairRatio  <- bmath$pairRatio
+
+  ### Copias completas ----
+  copyLiga <- ligaTeams
+  copyPlayers <- ligaPlayers
+  
+  ### Simulamos lesiones solo de los titulares del partido ----
+  starterIdx <- which(copyPlayers$playerTeam %in% matchTeams & copyPlayers$playerNum <= 11)
+  copyPlayers[starterIdx, ] <- injury_sim(copyPlayers[starterIdx, ])
+  
+  ### Vector lógico de jugadores que jugarán el partido ----
+  matchPlayers <- rep(FALSE, nrow(copyPlayers))
+  
+  for (t in matchTeams) {
+    # Titulares del equipo
+    teamStarters <- which(copyPlayers$playerTeam == t & copyPlayers$playerNum <= 11)
+    
+    for (i in teamStarters) {
+      if (copyPlayers$injured[i]) {
+        # Buscar suplente
+        subNum <- copyPlayers$playerNum[i] + 11
+        subIdx <- which(copyPlayers$playerTeam == t & copyPlayers$playerNum == subNum)
+        if (length(subIdx) > 0) {
+          matchPlayers[subIdx] <- TRUE
+        }
+        # Si no hay suplente, el titular lesionado queda fuera
+      } else {
+        # Titular sano
+        matchPlayers[i] <- TRUE
+      }
+    }
+  }
+
+  # Reiniciamos playerGoalProb para este partido desde el valor base
+  copyPlayers$playerGoalProb <- copyPlayers$playerGoalProbBase
+  
+  # Ajustamos solo por presupuesto del equipo más débil
+  copyPlayers$playerGoalProb <- ifelse(
+    copyPlayers$playerTeam == weakerTeam,
+    copyPlayers$playerGoalProb * budgetDif,
+    copyPlayers$playerGoalProb
+  )
+  
+  ### Simulamos los goles de los jugadores del encuentro ----
+  results <- sim_goals(copyPlayers[matchPlayers, ], team1, team2, weakerTeam, pairRatio)
+  
+  ### Agregamos el partido jugado a cada jugador ----
+  copyPlayers[matchPlayers, ]$MP <- copyPlayers[matchPlayers, ]$MP + 1
+  
+  
+  ### Actualizamos resultados ----
+  updated <- update_results(copyPlayers, copyLiga, matchPlayers, results, team1, team2)
+  copyPlayers <- updated$players
+  copyLiga <- updated$liga
+  
+  return(list(ligaPlayers = copyPlayers, ligaTeams = copyLiga))
+}
+
+```
+
+Continuando con el pasaje desde un partido a la liga completa
+necesitamos generar un fixture para cada equipo durante las 38 fechas.
+En cada fecha se simularán 10 partidos entre pares de equipos distintos.
+El fixture se genera con la función 'gen_fixture()' y se itera a lo
+largo de todos los encuentros que el mismo genera con la función
+'sim_liga()'.
+
+```{r include=FALSE}
+# Genera el calendario ida y vuelta para una liga
+gen_fixtures <- function(team_names) {
+  # Si hay número impar, agregamos un BYE
+  if (length(team_names) %% 2 == 1) {
+    team_names <- c(team_names, "BYE")
+  }
+  
+  n  <- length(team_names)
+  h  <- n / 2
+  t  <- team_names
+  rounds_ida <- list()
+  
+  # Algoritmo de "rotación" clásico de liga todos contra todos
+  for (r in 1:(n - 1)) {
+    home <- t[1:h]
+    away <- rev(t[(h + 1):n])
+    
+    fixture_r <- data.frame(home = home, away = away, 
+                            stringsAsFactors = FALSE)
+    
+    # Quitamos partidos con BYE si existieran
+    fixture_r <- subset(fixture_r, home != "BYE" & away != "BYE")
+    
+    rounds_ida[[r]] <- fixture_r
+    
+    # Rotación: el primero se queda fijo, rota el resto
+    t <- c(t[1], t[n], t[2:(n - 1)])
+  }
+  
+  # Vuelta: invertimos localías
+  rounds_vuelta <- lapply(rounds_ida, function(df) {
+    data.frame(home = df$away, away = df$home, stringsAsFactors = FALSE)
+  })
+  
+  # Concatenamos ida y vuelta
+  fixtures <- c(rounds_ida, rounds_vuelta)
+  return(fixtures)
+}
+```
+
+```{r include=FALSE}
+sim_liga <- function(equipos_df, n_jornadas, visualization = TRUE) {
+  
+  fixtures <- gen_fixtures(equipos_df$teamName)
+  total_jornadas <- length(fixtures)
+  
+  if (n_jornadas > total_jornadas) {
+    stop(paste0("Hay solo ", total_jornadas, " jornadas posibles (ida y vuelta)."))
+  }
+  
+  show_step <- visualization
+  
+  # --- Simulación de Jornadas ---
+  for (j in 1:n_jornadas) {
+    if (visualization) cat("\n================ Jornada", j, "================\n")
+    
+    jornada <- fixtures[[j]]
+    
+    for (m in 1:nrow(jornada)) {
+      home_team_name <- jornada$home[m]
+      away_team_name <- jornada$away[m]
+      
+      team1 <- ligaTeams[ligaTeams$teamName == home_team_name, ]
+      team2 <- ligaTeams[ligaTeams$teamName == away_team_name, ]
+      
+      matchSim <- sim_match(team1, team2)
+      ligaPlayers <<- matchSim$ligaPlayers
+      ligaTeams   <<- matchSim$ligaTeams
+    }
+    
+    # Visualización paso a paso
+    if (show_step) {
+      tabla <- ligaTeams[order(-ligaTeams$teamPoints, -ligaTeams$teamGoals), ]
+      cat("\n--- Tabla tras jornada", j, "---\n")
+      print(tabla[, c("teamName", "MP", "teamPoints", "teamGoals")])
+      
+      cat("\n[Enter] Siguiente | [Espacio+Enter] Rapido | [ESC] Salir\n")
+      ans <- readline(prompt = "> ")
+      
+      if (ans == "\033") break
+      if (ans == " ") show_step <- FALSE
+    }
+  }
+  
+  # --- FIN DE TEMPORADA: ECONOMIA Y EXPECTATIVAS ---
+  
+  # 1. Definimos la Tabla Final (Posición Real)
+  tabla_final <- ligaTeams[order(-ligaTeams$teamPoints, -ligaTeams$teamGoals), ]
+  tabla_final$pos_real <- 1:nrow(tabla_final)
+  
+  # 2. Calculamos la Posición Esperada (Ranking por Presupuesto)
+  # El que tiene más dinero debería ser el 1, el segundo el 2, etc.
+  # Usamos rank(-presupuesto)
+  ligaTeams$pos_esperada <- rank(-ligaTeams$teamBudget, ties.method = "first")
+  
+  # Unimos esa info a la tabla final para hacer los cálculos
+  tabla_calculo <- merge(tabla_final, ligaTeams[, c("teamName", "pos_esperada")], by="teamName")
+  
+  # Ordenamos de nuevo por posición real para el bucle de premios
+  tabla_calculo <- tabla_calculo[order(tabla_calculo$pos_real), ]
+  
+  # 3. Definición de Premios y Castigos
+  # PREMIO FIJO (TV/Liga): Solo para los primeros 10
+  premios_tv <- c(50, 30, 20, 15, 10, 8, 6, 5, 4, 2, rep(0, 10))
+  
+  # AJUSTE POR RENDIMIENTO (Inversores): $10M por cada puesto de diferencia
+  VALOR_PUESTO <- 10 
+  
+  if (visualization) {
+    cat("\n💰 BALANCE DE TEMPORADA (Premios + Ajuste de Mercado) 💰\n")
+    cat(sprintf("%-6s | %-6s | %-8s | %-8s | %-10s | %-10s | %-10s\n", 
+                "Pos", "Equipo", "Esperado", "Diferencia", "Premio TV", "Ajuste Inv.", "Total Cambio"))
+    cat("--------------------------------------------------------------------------------\n")
+  }
+
+  for (i in 1:nrow(tabla_calculo)) {
+    nombre <- tabla_calculo$teamName[i]
+    pos_real <- tabla_calculo$pos_real[i]
+    pos_esp  <- tabla_calculo$pos_esperada[i]
+    
+    # Cálculo del diferencial
+    diferencia <- pos_esp - pos_real
+    
+    # Dinero
+    dinero_tv <- premios_tv[pos_real]
+    dinero_rendimiento <- diferencia * VALOR_PUESTO
+    
+    # Penalización extra por "Fracaso Estrepitoso" para equipos ricos
+    # Si tenías presupuesto para Top 4 y quedaste fuera de Top 4, castigo extra de 20M
+    castigo_extra <- 0
+    if (pos_esp <= 4 && pos_real > 4) {
+      castigo_extra <- -20
+      dinero_rendimiento <- dinero_rendimiento + castigo_extra
+    }
+    
+    total_cambio <- dinero_tv + dinero_rendimiento
+    
+    # APLICAR AL DATAFRAME GLOBAL
+    idx <- which(ligaTeams$teamName == nombre)
+    ligaTeams$teamBudget[idx] <<- ligaTeams$teamBudget[idx] + total_cambio
+    
+    # Evitamos bancarrotas (presupuesto mínimo 5M)
+    if (ligaTeams$teamBudget[idx] < 5) ligaTeams$teamBudget[idx] <<- 5
+    
+    if (visualization) {
+      cat(sprintf("%-6d | %-6s | %-8d | %-+8d | +$%-9d | %-+11d | %-+11.1f\n", 
+                  pos_real, nombre, pos_esp, diferencia, dinero_tv, dinero_rendimiento, total_cambio))
+    }
+  }
+  
+  if (visualization) {
+    cat("\n=========== Tabla Final ===========\n")
+    # Mostramos presupuesto actualizado
+    print(ligaTeams[order(-ligaTeams$teamPoints), c("teamName", "teamPoints", "teamBudget", "leagueTitles")])
+  }
+}
+```
+
+Finalmente con la función 'sim_n_ligas()' iteramos generando distintas
+ligas consecutivas. Añadimos la posibilidad de tener en cuenta o no los
+resultados anteriores de las ligas previas a la hora de simular las
+contiguas. Como se puede considerar la opción de simularlas de manera
+independiente, agregamos la funcion 'reset_liga()' para volver al estado
+de condiciones inicialmente establecido.
+
+```{r include=FALSE}
+# --- VARIABLES GLOBALES DE RESPALDO ---
+
+# Ejecutamos esto UNA VEZ para guardar cómo nació la liga
+snapshot_teams <- ligaTeams
+snapshot_players <- ligaPlayers
+
+# Función para volver al día 0
+reset_liga <- function() {
+  # Restauramos las copias exactas a las variables globales
+  ligaTeams <<- snapshot_teams
+  ligaPlayers <<- snapshot_players
+}
+
+```
+
+```{r include=FALSE}
+sim_n_ligas <- function(n, mantener_evolucion = FALSE) {
+  
+  historial_campeones <- character(n) 
+  
+  pb <- txtProgressBar(min = 0, max = n, style = 3)
+  
+  for (i in 1:n) {
+    
+    if (mantener_evolucion == FALSE) {
+      reset_liga() 
+    } else {
+      ligaTeams$teamPoints <<- 0
+      ligaTeams$teamGoals <<- 0
+      ligaTeams$MP <<- 0
+      
+      ligaPlayers$playerGoals <<- 0
+      ligaPlayers$MP <<- 0
+      ligaPlayers$injured <<- FALSE
+      ligaPlayers$injuryDuration <<- 0
+    }
+    
+    invisible(capture.output(sim_liga(ligaTeams, 38, visualization = FALSE)))
+    
+    tabla <- ligaTeams[order(-ligaTeams$teamPoints, -ligaTeams$teamGoals), ]
+    campeon <- tabla$teamName[1]
+    historial_campeones[i] <- campeon
+    
+    idx_campeon <- which(ligaTeams$teamName == campeon)
+    ligaTeams$leagueTitles[idx_campeon] <<- ligaTeams$leagueTitles[idx_campeon] + 1
+    
+    setTxtProgressBar(pb, i)
+  }
+  close(pb)
+  
+  # --- ANÁLISIS ---
+  conteo <- table(historial_campeones)
+  conteo_df <- as.data.frame(conteo)
+  
+  colnames(conteo_df) <- c("Equipo", "Titulos")
+  
+  conteo_df <- merge(conteo_df, ligaTeams[, c("teamName", "teamBudget", "leagueTitles")], 
+                     by.x = "Equipo", by.y = "teamName")
+  
+  # Ordenamos por títulos
+  conteo_df <- conteo_df[order(-conteo_df$Titulos), ]
+  
+  # Visualización
+  print(
+    ggplot(conteo_df, aes(x = reorder(Equipo, -Titulos), y = Titulos, fill = teamBudget)) +
+      geom_col() +
+      geom_text(aes(label = Titulos), vjust = -0.5, color = "black") + 
+      scale_fill_viridis_c(name = "Presupuesto ($M)") +
+      labs(title = paste("Resultados de", n, "Temporadas"),
+           subtitle = "Dinastias formadas (Titulos acumulados)",
+           x = "Equipo", y = "Titulos Ganados") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+  )
+  
+  return(conteo_df)
+}
+```
+
+# Simulamos
+
+```{r echo = FALSE, message=FALSE, fig.height=3}
+reset_liga() 
+
+# Los equipos suman dinero y títulos en la columna leagueTitles
+resultados <- sim_n_ligas(50, mantener_evolucion = TRUE)
+```
+
+### Herramientas de análisis numérico aplicadas en el modelo
+
+En esta sección se buscó aportar desde otro método un resultado similar
+al obtenido con la calibración con Montecarlo. El objetivo es
+aproximar el promedio de gol por partido de una liga real de referencia
+(la española en este caso) a la ficticia que nosotros simulamos.
+
+# Metodo de Bisección
+
+```{r echo = FALSE, message=FALSE, fig.height=3}
+# Calcula el promedio de goles por partido en UNA liga simulada dado un θ
+promedio_goles_liga <- function(theta, 
+                                objetivo      = 2.61, 
+                                n_jornadas    = 38, 
+                                visualization = FALSE, 
+                                seed          = 123) {
+  # Fijamos semilla
+  set.seed(seed)
+  
+  # 1) Volver al estado inicial de la liga (GLOBAL)
+  reset_liga()
+  
+  # 2) Recalcular probabilidades de gol GLOBALES usando superasignación (<<-)
+  #    Esto asegura que sim_liga y sim_match vean los cambios.
+  
+  nuevas_probs <- mis_semillas[as.character(ligaPlayers$playerPos)] * theta
+  
+  ligaPlayers$playerGoalProb <<- nuevas_probs * (1 - (ligaPlayers$playerNum > 11) / 2)
+  ligaPlayers$playerGoalProbBase <<- ligaPlayers$playerGoalProb
+  
+  # 3) Simular una temporada completa
+  invisible(capture.output(
+    sim_liga(ligaTeams, n_jornadas = n_jornadas, visualization = visualization)
+  ))
+  
+  # 4) Total de goles y cantidad de partidos jugados
+  total_goles    <- sum(ligaTeams$teamGoals)
+  total_partidos <- sum(ligaTeams$MP) / 2 
+  
+  prom_goles <- total_goles / total_partidos
+  return(prom_goles)
+}
+```
+
+```{r echo = FALSE, message=FALSE}
+biseccion <- function (FUN = NA, x_inf = 0, x_sup = 0, tol =1e-5, maxiter = 1000) {
+  if (!is.function(FUN)) {
+      stop("Debe pasar una función válida en 'FUN'.")
+  } else if (!is.finite(x_inf) || !is.finite(x_sup)) {
+            stop("x_inf y x_sup deben ser números finitos.")
+  } else if (x_inf == x_sup) {
+            stop("x_inf y x_sup no pueden ser iguales.")
+  } else if (x_inf > x_sup) {
+    tmp <- x_inf; x_inf <- x_sup; x_sup <- tmp
+  } else {
+      amplitud <- x_sup - x_inf
+      fx_sup <- FUN(x_sup)
+      fx_inf <- FUN(x_inf)
+      if (!is.finite(fx_inf) || !is.finite(fx_sup)) {
+      stop("FUN no puede evaluarse en los extremos: revise el intervalo y el 
+           dominio de la función.")
+      } else {
+          iter <- 1
+          x_med <- (x_sup + x_inf )/2
+          fx_med <- FUN(x_med)
+          if ((fx_inf * fx_sup) < 0) {
+              while (amplitud > tol && iter < maxiter) {
+                    x_med <- (x_sup + x_inf )/2
+                    fx_med <- FUN(x_med)
+                    if (fx_inf * fx_med < 0) {
+                        x_sup <- x_med 
+                        fx_sup <- fx_med
+                    } else {
+                        x_inf <- x_med 
+                        fx_inf <- fx_med
+                      }
+                      amplitud <- x_sup - x_inf
+                      iter <- iter + 1
+              }
+          } else {
+              stop("El intervalo [", x_inf, x_sup,"] no es válido para bisección: 
+                    la función no cambia de signo.")
+            }
+            salida <- list(raiz = x_med, f_raiz = fx_med, iter = iter)
+            return (salida)
+    }
+  }
+}
+```
+
+```{r echo = FALSE, message=FALSE}
+# Esta es g(θ): promedio de goles con θ menos el objetivo (2.61 por defecto)
+g_theta <- function(theta,
+                    objetivo      = 2.61,
+                    n_jornadas    = 38,
+                    visualization = FALSE,
+                    seed          = 123) {
+  promedio_goles_liga(theta,
+                      objetivo      = objetivo,
+                      n_jornadas    = n_jornadas,
+                      visualization = visualization,
+                      seed          = seed) - objetivo
+}
+```
+
+```{r echo = FALSE, message=FALSE}
+encontrar_intervalo <- function(fun, 
+                                t_min = 0.5, 
+                                t_max = 0.7, 
+                                paso  = 0.05) {
+  thetas  <- seq(t_min, t_max, by = paso)
+  valores <- sapply(thetas, fun)
+  
+  for (i in 1:(length(thetas) - 1)) {
+    if (valores[i] * valores[i + 1] < 0) {
+      return(c(thetas[i], thetas[i + 1]))
+    }
+  }
+  
+  stop("No se encontró un intervalo con cambio de signo entre ", t_min, " y ", t_max)
+}
+
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+fun_obj <- function(t) g_theta(t, objetivo = 2.61)
+
+# 1) Encontrar intervalo donde g cambia de signo
+int <- encontrar_intervalo(fun_obj, t_min = 0.6, t_max = 0.8, paso = 0.05)
+int 
+
+# 2) Usar ese intervalo en la bisección
+res_bis <- biseccion(
+  FUN   = fun_obj,
+  x_inf = int[1],
+  x_sup = int[2],
+  tol   = 1e-3
+)
+
+res_bis$raiz
+res_bis$f_raiz
+res_bis$iter
+```
+
+### Calibración del parámetro $\theta$ y análisis de su efecto en la dinámica goleadora del modelo
+
+Una vez consolidada la estructura del motor de simulaciones, incluyendo
+la composición de los planteles, la dinámica de lesiones, la
+diferenciación entre titulares y suplentes y la influencia presupuestal
+que introduce asimetrías competitivas entre equipos, se avanzó hacia la
+calibración del parámetro $\theta$. Este parámetro funciona como un
+factor de escala que modula la probabilidad efectiva de que un jugador
+convierta un gol, integrando simultáneamente múltiples condicionantes:
+posición en la cancha, condición física, disponibilidad de reemplazos y
+fortaleza económica del club.
+
+En términos conceptuales, $\theta$ opera como un coeficiente global que
+amplifica o atenúa la intensidad goleadora de toda la liga, traduciendo
+los comportamientos individuales en patrones agregados. El objetivo de
+la calibración consiste en encontrar un valor de $\theta$ que reproduzca
+el promedio empírico de $2.61$ goles por partido. Formalmente, esto
+equivale a resolver la ecuación no lineal:
+
+$$
+g(\theta) = \mathbb{E}[G(\theta)] - 2.61 = 0,
+$$
+
+donde $\mathbb{E}[G(\theta)]$ representa el promedio de goles por
+partido observado en la simulación.
+
+### Identificación de un intervalo y resolución numérica
+
+El estudio inicial del comportamiento de $g(\theta)$ permitió detectar
+un intervalo en el cual la función cambia de signo. Desde el punto de
+vista del análisis numérico, esto garantiza la existencia de una raíz
+dentro de dicho intervalo y habilita la aplicación de métodos de
+resolución que requieren esta propiedad.
+
+Sobre este intervalo se aplicó un proceso iterativo que, en apenas siete
+pasos, condujo al valor aproximado:
+
+$$
+\theta^{*} \approx 0.653,
+$$
+
+para el cual la diferencia residual es muy cercana a cero:
+
+$$
+g(\theta^{*}) \approx 0.003.
+$$
+
+Dado el carácter estocástico del simulador, esta discrepancia es
+prácticamente despreciable. El resultado confirma que el modelo es
+sensible al ajuste de $\theta$ y que las múltiples dinámicas internas
+—lesiones, sustituciones, diferencias posicionales, ventajas
+presupuestales y distribución de minutos— responden coherentemente a
+variaciones en la intensidad goleadora.
+
+### Herramientas de análisis numérico aplicadas en el modelo
+
+Aunque el motor de simulaciones incorpora módulos específicos
+(distribución de probabilidades, sistema de lesiones, ajustes
+económicos, Monte Carlo), su estructura conceptual descansa en
+herramientas clásicas de análisis numérico. La calibración de $\theta$
+constituye, en esencia, un problema de encontrar la raíz de una ecuación
+no lineal del tipo:
+
+$$
+f(\theta) = \text{goles simulados} - \text{goles objetivo} = 0,
+$$
+
+equivalente a la formulación más general:
+
+$$
+g(\theta) = \mathbb{E}[G(\theta)] - 2.61.
+$$
+
+Para resolver ecuaciones de este tipo suelen emplearse métodos como:
+
+-   **bisección**, cuando se conoce un intervalo con cambio de signo;\
+-   **iteración sobre un punto fijo**, cuando se buscan aproximaciones
+    sucesivas sin derivadas;\
+-   **Newton–Raphson**, cuando es posible estimar de manera fiable la
+    derivada de $g(\theta)$.
+
+Estos enfoques comparten la idea de ajustar iterativamente el valor de
+$\theta$ para que la diferencia entre lo producido por el modelo y el
+valor objetivo desaparezca.
+
+### Por qué se eligió el método de bisección
+
+Aunque existen alternativas más rápidas en teoría, como Newton–Raphson o
+el método de iteración sobre un punto fijo, el método de bisección
+ofrece ventajas críticas dadas las características del modelo:
+
+**1. No requiere derivadas**
+
+Newton–Raphson depende de estimar $g'(\theta)$.\
+Sin embargo, debido al carácter estocástico del simulador —donde cada
+evaluación de $G(\theta)$ implica una liga completa con lesiones,
+sustituciones y efectos económicos— la derivada numérica resulta
+extremadamente ruidosa y poco estable.
+
+**2. No requiere que el proceso sea contractivo**
+
+El método de punto fijo exige que la transformación sea contractiva en
+el entorno de la solución, condición que no está garantizada en sistemas
+con retroalimentaciones complejas como este.
+
+**3. Garantiza convergencia si existe cambio de signo**
+
+Una vez detectado un intervalo $[a,b]$ con $g(a)\, g(b) < 0$, la
+convergencia del método de bisección es segura, independiente del ruido
+estocástico o de la forma de $g(\theta)$.\
+Esta robustez es especialmente valiosa en modelos donde una sola
+evaluación implica una temporada de fútbol completa.
+
+**4. Costo computacional razonable**
+
+Aunque Newton–Raphson es más rápido teóricamente, la necesidad de
+reevaluar $g(\theta)$ varias veces para estimar derivadas hace que, en
+la práctica, la bisección resulte más eficiente cuando cada evaluación
+es costosa.
+
+Por estas razones, la bisección se presenta como el método natural:
+estable, simple, robusto frente al ruido y perfectamente adecuado para
+una función $g(\theta)$ cuyo comportamiento global se conoce gracias a
+la exploración previa.
+
+### Breve comparación con el enfoque Monte Carlo previo
+
+Antes de este enfoque numérico, la calibración se realizaba mediante un
+procedimiento exclusivamente Monte Carlo: simular miles de partidos,
+observar el promedio obtenido y modificar $\theta$ multiplicándolo por
+un factor correctivo. Aunque operativamente válido, este método dependía
+del azar, requería muchas iteraciones y no garantizaba estabilidad ni
+unicidad en la solución.
+
+El enfoque actual, en cambio:
+
+-   estudia explícitamente la estructura matemática del problema,\
+-   identifica un intervalo donde existe raíz,\
+-   aplica un método determinístico y estable,\
+-   converge con rapidez,\
+-   y permite interpretar el resultado desde una perspectiva analítica.
+
+De este modo, la calibración de $\theta$ se vuelve más precisa, más
+transparente y mejor fundamentada dentro del contexto del análisis
+numérico.
+
+### Optimización numérica
+
+El módulo de calibración implementa un proceso iterativo de
+minimización:
+
+$$
+\min_{\theta} \; \big( \text{goles simulados}(\theta) - 2.61 \big)^{2},
+$$
+
+lo cual corresponde a un problema de optimización unidimensional.
+
+Asimismo, el ajuste económico de presupuestos puede interpretarse como
+un problema dinámico de optimización, donde los equipos *maximizan* su
+probabilidad futura de ganar títulos al aumentar su presupuesto a través
+del rendimiento deportivo.
+
+# Discusión
+
+Una vez finalizado el motor de simulaciones, tanto para cada liga
+individual como para el conjunto de n ligas simuladas, se procedió a
+indagar en las preguntas iniciales.
+
+## Concentración de titulos
+
+Se parte estudiando la grandeza relativa de los equipos y su evolución a
+lo largo del tiempo. El objetivo fue analizar cómo se distribuían los
+títulos entre los clubes y observar el grado de concentración que
+emergía bajo distintos escenarios iniciales: ligas con dos equipos
+grandes o sin clubes grandes en la base inicial. Esta
+comparación permitió evaluar cómo la configuración de partida influye en
+la dinámica competitiva y en la acumulación histórica de campeonatos.
+
+Los resultados se muestran a continuación. Si arrancamos con ningun
+equipo grande dentro de la liga obtenemos la siguiente distribución en
+los títulos:
+
+```{r echo = FALSE, message=FALSE}
+camp_0_grandes_50 <- sim_n_ligas(50, mantener_evolucion = TRUE)
+```
+
+Para ligas con tres equipos grandes resulta:
+
+![Concentracion de titulos con Equipos Grandes](50TemporadasEquiposGrandes.png){height=300}
+
+En principio, se destaca la concentración de títulos manifiesta cuando
+tratamos con la existencia previa de equipos grandes en la liga. En
+contraste, Cuando la liga parte sin equipos grandes, la distribución
+inicial de presupuestos es relativamente homogénea y ningún club cuenta
+con una ventaja marcada. Sin embargo, a medida que avanzan las
+temporadas, algunos equipos comienzan a destacarse casi de forma
+orgánica. Esto responde a que el sistema incorpora un premio económico
+para el campeón de cada liga, que incrementa su presupuesto y, en
+consecuencia, mejora sus probabilidades de obtener mejores resultados
+deportivos en la siguiente temporada. Este ciclo de éxito deportivo
+seguido de mayor capacidad económica actúa como un mecanismo acumulativo
+que, con el tiempo, genera una brecha creciente entre los clubes.
+
+En el escenario donde la liga sí comienza con 3 equipos grandes,
+el proceso es aún más marcado. Estos clubes ya parten con un presupuesto
+superior al del resto, lo que les otorga un rendimiento inicial más alto
+y, por lo tanto, una mayor probabilidad de ganar campeonatos. Cuando
+estos equipos obtienen victorias, el premio económico adicional no solo
+consolida su ventaja sino que la amplifica, profundizando la desigualdad
+competitiva. De esta forma, la estructura inicial condiciona fuertemente
+la evolución de la liga: en ausencia de equipos grandes, la
+concentración surge de manera natural a lo largo del tiempo; cuando ya
+existen clubes dominantes, su supremacía se intensifica y la
+concentración se vuelve todavía más acentuada.
+
+## Frontera del Gasto Racional
+
+```{r include = FALSE, eval = FALSE}
+# ==============================================================================
+# CONFIGURACIÓN: 20 LIGAS POR PRESUPUESTO + INTERVALOS DE CONFIANZA
+# ==============================================================================
+
+THETA_OPTIMO <- 0.6526367
+# Mezcla: Detalle fino al principio (crecimiento) y al final (ineficiencia)
+budgets_to_test <- c(20, 100, 300, 600, 900, 1200, 1600, 2000)
+SIMS_POR_PUNTO <- 3 
+
+# ==============================================================================
+# FUNCIONES AUXILIARES
+# ==============================================================================
+
+aplicar_calibracion <- function() {
+  ligaPlayers$playerGoalProb <<- mis_semillas[as.character(ligaPlayers$playerPos)] * THETA_OPTIMO
+  ligaPlayers$playerGoalProb <<- ligaPlayers$playerGoalProb * (1 - (ligaPlayers$playerNum > 11)/2)
+  ligaPlayers$playerGoalProbBase <<- ligaPlayers$playerGoalProb
+}
+
+evaluar_presupuesto_con_detalle <- function(team_name, test_budget, n_sims) {
+  # Vector para guardar los puntos de cada una de las 10 ligas
+  historial_puntos <- numeric(n_sims)
+  
+  for(i in 1:n_sims) {
+    reset_liga()            
+    aplicar_calibracion()   
+    
+    idx <- which(ligaTeams$teamName == team_name)
+    ligaTeams$teamBudget[idx] <<- test_budget
+    
+    invisible(capture.output(sim_liga(ligaTeams, 38, visualization = FALSE)))
+    
+    # Guardamos el dato individual de esta temporada
+    historial_puntos[i] <- ligaTeams$teamPoints[ligaTeams$teamName == team_name]
+  }
+  
+  # Calculamos estadísticas
+  promedio <- mean(historial_puntos)
+  desvio   <- sd(historial_puntos)
+  error_std <- desvio / sqrt(n_sims)
+  
+  # Intervalo de Confianza 95% (t-student para n-1 grados de libertad)
+  t_val <- qt(0.975, df = n_sims - 1)
+  ci_lower <- promedio - t_val * error_std
+  ci_upper <- promedio + t_val * error_std
+  
+  return(list(
+    budget   = test_budget,
+    avg_points = promedio,
+    sd_points  = desvio,
+    ci_lower   = ci_lower,
+    ci_upper   = ci_upper
+  ))
+}
+
+# ==============================================================================
+# EJECUCIÓN
+# ==============================================================================
+
+cat("Iniciando análisis robusto (20 ligas por nivel)...\n")
+results_list <- list()
+equipo_test <- "Real Madrid"
+
+pb <- txtProgressBar(min = 0, max = length(budgets_to_test), style = 3)
+
+for(k in 1:length(budgets_to_test)) {
+  res <- evaluar_presupuesto_con_detalle(equipo_test, budgets_to_test[k], n_sims = SIMS_POR_PUNTO)
+  results_list[[k]] <- res
+  setTxtProgressBar(pb, k)
+}
+close(pb)
+
+df_results <- bind_rows(results_list)
+
+# ==============================================================================
+# CÁLCULO DE COSTOS MARGINALES Y GRÁFICOS
+# ==============================================================================
+
+df_analysis <- df_results %>%
+  arrange(budget) %>%
+  mutate(
+    delta_budget = budget - lag(budget),
+    delta_points = avg_points - lag(avg_points),
+    marginal_cost = delta_budget / delta_points
+  )
+df_analysis$marginal_cost[1] <- 0
+
+# GRÁFICO 1: Curva de Rendimiento con Intervalo de Confianza
+print(
+  ggplot(df_analysis, aes(x = budget, y = avg_points)) +
+  # La cinta gris marca el Intervalo de Confianza
+  geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper), fill = "grey80", alpha = 0.5) +
+  geom_line(color = "blue", linewidth = 1.2) +
+  geom_point(size = 3, color = "darkblue") +
+  labs(title = "Frontera de Eficiencia con Incertidumbre", 
+       subtitle = paste("Promedio de", SIMS_POR_PUNTO, "temporadas (IC 95%)"),
+       y = "Puntos Esperados",
+       x = "Presupuesto ($M)") +
+  theme_minimal()
+)
+
+# GRÁFICO 2: Costo Marginal (Suavizado)
+# Usamos geom_smooth para ver la tendencia del costo, ya que el dato crudo puede saltar
+print(
+  ggplot(df_analysis, aes(x = budget, y = marginal_cost)) +
+  geom_col(fill = "#b03a2e", alpha=0.6) +
+  geom_smooth(method = "loess", se = FALSE, color = "black", linetype="dashed", size=0.8) +
+  labs(title = "Costo Marginal del Punto", 
+       subtitle = "Cuánto cuesta (aprox) subir al siguiente nivel competitivo",
+       y = "$ Millones por Punto Extra") +
+  theme_minimal()
+)
+
+# Tabla de resultados
+print(df_analysis %>% dplyr::select(budget, avg_points, ci_lower, ci_upper, marginal_cost))
+```
+
+La incorporación de técnicas de optimización numérica al modelo de
+simulación nos permite trascender la simple descripción de resultados
+deportivos para auditar la estructura económica de la competición. Al
+aislar las variables y someter a un equipo testigo a diferentes niveles
+de inversión, hemos logrado trazar la "Frontera de Eficiencia", una
+curva que revela cuánto cuesta realmente transformar dinero en puntos.
+Este enfoque es fundamental porque elimina el ruido estadístico de una
+temporada aislada y nos muestra el comportamiento estructural del
+mercado: no se trata de quién tuvo suerte un año, sino de cuáles son las
+reglas financieras inmutables que rigen nuestra liga virtual.
+
+![Frontera de eficiencia](FronteraDeEficiencia.png)
+
+Los resultados actualizados confirman, en primer lugar, una fase de
+expansión acelerada para los presupuestos bajos. El retorno de inversión
+inicial es extraordinario: un club que quintuplica su presupuesto de 20
+a 100 millones logra, de media, duplicar su cosecha de puntos (saltando
+de 21 a 44,5). En esta etapa temprana, el "precio del éxito" es
+sumamente accesible, con un costo marginal de apenas 3,4 millones por
+punto adicional. Esto sugiere que, para los equipos chicos, la prioridad
+estratégica debe ser salir de la zona de pobreza extrema, ya que
+cualquier inyección mínima de capital se traduce inmediatamente en una
+mejora competitiva drástica.
+
+Sin embargo, al adentrarnos en la zona media-alta, el modelo revela un
+fenómeno de estancamiento prematuro. Al pasar de 600 a 900 millones de
+presupuesto, el rendimiento deportivo se congela casi por completo,
+subiendo imperceptiblemente de 73,7 a 74,2 puntos. Esto indica una zona
+de ineficiencia severa: gastar 300 millones adicionales apenas mueve la
+aguja deportiva, elevando el costo marginal a la absurda cifra de 600
+millones por punto. Este hallazgo es contraintuitivo y valioso: nos
+advierte que existe una "trampa de inversión" en la que un club puede
+gastar como un gigante pero seguir obteniendo resultados de equipo
+mediano si no logra dar el salto cualitativo definitivo hacia la élite
+absoluta.
+
+Curiosamente, si el club logra romper esa barrera y escalar hasta los
+1200 millones, experimenta un segundo aire de rendimiento, alcanzando el
+pico máximo observado de 81,6 puntos. Pero este pico es un "falso
+positivo" financiero. A partir de aquí, la optimización nos muestra que
+el sistema colapsa bajo su propio peso. Al forzar la inversión hasta los
+1600 millones, el rendimiento promedio cae a 80,7 puntos, generando un
+costo marginal negativo (-444 millones por punto). Esto significa que el
+club está pagando activamente para empeorar. La optimización numérica
+demuestra así que el presupuesto de 1200 millones representa el óptimo
+global: es el punto exacto donde se maximiza la probabilidad de
+campeonato antes de que la saturación de estrellas y la mecánica de
+lesiones comiencen a destruir valor deportivo, castigando la ambición
+desmedida con rendimientos decrecientes.
+
+## Costo promedio por punto
+
+Ahora veamos como distribuye el Costo Promedio por Punto (CPP)
+
+$$\text{CPP} = \frac{\text{Presupuesto Total}}{\text{Puntos Totales}}$$
+
+```{r include = FALSE, eval=FALSE}
+
+# ==============================================================================
+# 1. GENERACIÓN DE DATOS 
+# ==============================================================================
+
+THETA_OPTIMO <- 0.6526367 
+
+# Función auxiliar para asegurar calibración
+aplicar_calibracion <- function() {
+  ligaPlayers$playerGoalProb <<- mis_semillas[as.character(ligaPlayers$playerPos)] * THETA_OPTIMO
+  ligaPlayers$playerGoalProb <<- ligaPlayers$playerGoalProb * (1 - (ligaPlayers$playerNum > 11)/2)
+  ligaPlayers$playerGoalProbBase <<- ligaPlayers$playerGoalProb
+}
+
+# Simulamos 50 temporadas para tener una muestra estadística robusta
+obtener_datos_segmentados <- function(n_sims = 50) {
+  
+  resultados_totales <- list()
+  cat("Simulando", n_sims, "temporadas para obtener distribución de costos...\n")
+  pb <- txtProgressBar(min = 0, max = n_sims, style = 3)
+  
+  for(i in 1:n_sims) {
+    # 1. Generamos presupuestos con TU LOGICA EXACTA
+    numTeams <- 20
+    numBigTeams <- 3
+    
+    bigBudgets <- runif(n = numBigTeams, min = 800, max = 1200)
+    # El resto son pequeños/medianos (17 equipos)
+    smallBudgets <- runif(n = numTeams - numBigTeams, min = 20, max = 400)
+    
+    ligaBudgets <- sample(c(bigBudgets, smallBudgets))
+    
+    # Asignamos y reseteamos
+    reset_liga()
+    ligaTeams$teamBudget <<- ligaBudgets
+    aplicar_calibracion()
+    
+    # 2. Corremos la liga
+    invisible(capture.output(sim_liga(ligaTeams, 38, visualization = FALSE)))
+    
+    # 3. Guardamos datos
+    df_temp <- ligaTeams %>%
+      mutate(
+        Costo_Por_Punto = teamBudget / teamPoints,
+        # Segmentación pedida por ti
+        Grupo = case_when(
+          teamBudget < 200 ~ "1. Chicos (<200M)",
+          teamBudget >= 200 & teamBudget <= 800 ~ "2. Medianos (200-400M)",
+          teamBudget > 800 ~ "3. Grandes (>800M)"
+        )
+      )
+    resultados_totales[[i]] <- df_temp
+    setTxtProgressBar(pb, i)
+  }
+  close(pb)
+  return(bind_rows(resultados_totales))
+}
+
+datos_segmentados <- obtener_datos_segmentados(50)
+
+# ==============================================================================
+# 2. FUNCIÓN DE COMPETENCIA DE DISTRIBUCIONES
+# ==============================================================================
+
+analizar_mejor_ajuste <- function(datos, nombre_grupo) {
+  cat("\n======================================================\n")
+  cat(" ANALIZANDO GRUPO:", nombre_grupo, "\n")
+  cat("======================================================\n")
+  
+  # Extraemos solo los valores de Costo (limpiamos infinitos por si acaso)
+  valores <- datos %>% 
+    filter(Grupo == nombre_grupo, is.finite(Costo_Por_Punto), Costo_Por_Punto > 0) %>% 
+    pull(Costo_Por_Punto)
+  
+  if(length(valores) < 10) {
+    cat("No hay suficientes datos para este grupo.\n")
+    return(NULL)
+  }
+
+  # 1. Gráfico Cullen and Frey (Para intuición visual)
+  # Nos dice a qué familia "se parece" el dato (Normal, Gamma, Lognormal, etc.)
+  descdist(valores, boot = 500, graph = FALSE) # graph=FALSE para no saturar la consola
+  
+  # 2. Ajustamos las candidatas más probables
+  fit_norm  <- tryCatch(fitdist(valores, "norm"), error=function(e) NULL)
+  fit_lnorm <- tryCatch(fitdist(valores, "lnorm"), error=function(e) NULL)
+  fit_gamma <- tryCatch(fitdist(valores, "gamma"), error=function(e) NULL)
+  fit_weibull <- tryCatch(fitdist(valores, "weibull"), error=function(e) NULL)
+  
+  lista_fits <- list(fit_norm, fit_lnorm, fit_gamma, fit_weibull)
+  lista_fits <- lista_fits[!sapply(lista_fits, is.null)] # Eliminar fallos
+  nombres_fits <- c("Normal", "Lognormal", "Gamma", "Weibull")[!sapply(list(fit_norm, fit_lnorm, fit_gamma, fit_weibull), is.null)]
+  
+  # 3. Comparamos Bondad de Ajuste (Goodness-of-fit)
+  gof <- gofstat(lista_fits, fitnames = nombres_fits)
+  
+  # Imprimimos resultados ordenados por AIC (Menor es mejor)
+  aic_scores <- sort(gof$aic)
+  ganadora <- names(aic_scores)[1]
+  
+  cat("\n🏆 LA GANADORA ES: ", ganadora, "\n")
+  print(aic_scores)
+  
+  # 4. Visualización
+  par(mfrow = c(1, 1))
+  denscomp(lista_fits, legendtext = nombres_fits, 
+           main = paste("Ajuste para", nombre_grupo),
+           xlab = "Costo por Punto ($M)")
+}
+
+# ==============================================================================
+# 3. EJECUCIÓN DEL ANÁLISIS
+# ==============================================================================
+
+# Analizamos cada grupo por separado
+analizar_mejor_ajuste(datos_segmentados, "3. Grandes (>800M)")
+analizar_mejor_ajuste(datos_segmentados, "2. Medianos (200-400M)")
+analizar_mejor_ajuste(datos_segmentados, "1. Chicos (<200M)")
+
+# Analizamos el GENERAL (Todos juntos)
+cat("\n\n=== ANÁLISIS GENERAL (TODOS LOS EQUIPOS) ===\n")
+# Ojo: Probablemente dé mal ajuste por ser bimodal
+todos_valores <- datos_segmentados$Costo_Por_Punto
+fit_general_lnorm <- fitdist(todos_valores, "lnorm")
+fit_general_gamma <- fitdist(todos_valores, "gamma")
+denscomp(list(fit_general_lnorm, fit_general_gamma), 
+         legendtext = c("Lognormal", "Gamma"), main = "Ajuste General")
+```
+
+![Costo marginal por punto](CostoMarginalPorPunto.png)
+
+![Disrtribucion del costo por punto para equipos chicos](EquiposChicosDist.png)
+
+1.  Equipos Chicos (\<200M): La Eficiencia de Supervivencia "Para los
+    equipos chicos, el Costo por Punto sigue una distribución Weibull
+    estrecha y asimétrica. El costo se concentra en un rango de máxima
+    eficiencia (\~3M/punto), lo que indica que estos equipos operan
+    cerca de un límite físico de rentabilidad. Al estar protegidos de la
+    saturación (lesiones) y beneficiados por mecánicas de equilibrio
+    (buffs), su desempeño refleja una maximización forzada de recursos
+    donde el despilfarro es sistémicamente imposible."
+
+![Disrtribucion del costo por punto para equipos medianos](EquiposMedianosDist.png)
+
+2.  Equipos Medianos (200M - 800M): La Fase de Transición y Costos
+    Crecientes "En el segmento medio, la distribución muta hacia una
+    Lognormal (o Gamma) y se desplaza hacia la derecha. El incremento en
+    el costo medio (\~5.5M/punto) y la aparición de colas hacia costos
+    más altos evidencian el impacto de los costos marginales crecientes.
+    Esta fase marca la pérdida de ventajas competitivas iniciales, donde
+    ganar puntos adicionales requiere un esfuerzo financiero
+    desproporcionalmente mayor al de la etapa anterior."
+
+![Disrtribucion del costo por punto para equipos grandes](EquiposGrandesDist.png)
+
+3.  Equipos Grandes (\>800M): Saturación y Gestión de Riesgo "Para los
+    equipos grandes, la eficiencia deja de ser una variable de
+    optimización y se convierte en una variable aleatoria (Normal). El
+    costo medio se estabiliza en un nivel alto estructural
+    (\~13.5M/punto) debido a los rendimientos decrecientes, y la alta
+    varianza observada refleja que, a estos niveles de inversión, el
+    éxito financiero depende más de la mitigación de riesgos
+    (azar/lesiones) que de la estructura de costos base."
+
+# Bibliografía de las librerías utilizadas
+
+Wickham H, Hester J, Francois R (2025).\
+*dplyr: A Grammar of Data Manipulation*.\
+R package version 1.1.4,\
+<https://CRAN.R-project.org/package=dplyr>.
+
+Wickham H, Chang W, Henry L, Pedersen TL, Takahashi K, Wilke C,\
+Woo K, Yutani H, Dunnington D (2025).\
+*ggplot2: Create Elegant Data Visualisations Using the Grammar of
+Graphics*.\
+R package version 3.5.1,\
+<https://CRAN.R-project.org/package=ggplot2>.
+
+Wickham H, Miller E, Bache S M, Müller K (2025).\
+*readr: Read Rectangular Text Data*.\
+R package version 2.1.5,\
+<https://CRAN.R-project.org/package=readr>.
+
+Wickham H, Girlich M (2025).\
+*tidyr: Tidy Messy Data*.\
+R package version 1.3.1,\
+<https://CRAN.R-project.org/package=tidyr>.
+
+Xie Y (2025).\
+*knitr: A General-Purpose Package for Dynamic Report Generation in R*.\
+R package version 1.50,\
+<https://yihui.org/knitr/>.
+
+Wickham H, Vaughan D, Girlich M (2025).\
+*purrr: Functional Programming Tools*.\
+R package version 1.0.2,\
+<https://CRAN.R-project.org/package=purrr>.
+
+Müller K, Wickham H (2025).\
+*tibble: Simple Data Frames*.\
+R package version 3.2.1,\
+<https://CRAN.R-project.org/package=tibble>.
+
+Pedersen TL (2025).\
+*patchwork: The Composer of Plots*.\
+R package version 1.2.0,\
+<https://CRAN.R-project.org/package=patchwork.>
+
+Garnier S (2025).\
+*viridis: Colorblind-Friendly Color Maps for R*.\
+R package version 0.6.5,\
+<https://CRAN.R-project.org/package=viridis.>
+
+Delignette-Muller ML, Dutang C (2025).\
+*fitdistrplus: Help to Fit of a Parametric Distribution to Non-Censored
+or Censored Data*.\
+R package version 1.1.10,\
+<https://CRAN.R-project.org/package=fitdistrplus.>
